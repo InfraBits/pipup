@@ -1,0 +1,25 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  pylama:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.x
+      uses: actions/setup-python@v2
+      with: {python-version: '3.9'}
+    - name: Install dependencies
+      run: pip install tox
+    - name: Run pylama
+      run: tox -e pylama
+  pyre:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up Python 3.x
+      uses: actions/setup-python@v2
+      with: {python-version: '3.9'}
+    - name: Install dependencies
+      run: pip install tox
+    - name: Run pyre
+      run: tox -e pyre

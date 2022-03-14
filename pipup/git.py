@@ -1,0 +1,146 @@
+'''
+pipup - Simple requirements updater
+
+MIT License
+
+Copyright (c) 2022 Infra Bits
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+'''
+import base64
+import logging
+import os
+import time
+from pathlib import PosixPath
+from typing import Optional, List, Tuple
+
+import requests
+
+logger: logging.Logger = logging.getLogger(__name__)
+
+
+class Git:
+    def __init__(self, repository: str, branch_name: str) -> None:
+        self.repository = repository
+        self._headers = {
+            'Authorization': f'token {os.environ.get("GITHUB_TOKEN", "")}',
+            'Accept': 'application/vnd.github.v3+json'
+        }
+        self._branch_name = branch_name
+
+    def get_default_branch(self) -> Tuple[str, str]:
+        r = requests.get(f'https://api.github.com/repos/{self.repository}',
+                         headers=self._headers)
+        r.raise_for_status()
+        return r.json()['default_branch']
+
+    def get_head_ref(self) -> Tuple[Optional[str], Optional[str]]:
+        r = requests.get('https://api.github.com/repos/'
+                         f'{self.repository}/git/refs',
+                         headers=self._headers)
+        r.raise_for_status()
+
+        default_branch = self.get_default_branch()
+        for branch in r.json():
+            if branch['ref'] == f'refs/heads/{default_branch}':
+                return branch['ref'], branch['object']['sha']
+        return None, None
+
+    def create_branch(self, base_sha: str) -> None:
+        r = requests.post('https://api.github.com/repos/'
+                          f'{self.repository}/git/refs',
+                          json={
+                              'ref': f'refs/heads/{self._branch_name}',
+                              'sha': base_sha,
+                          },
+                          headers=self._headers)
+        r.raise_for_status()
+
+    def get_file_sha(self, path: PosixPath) -> Optional[str]:
+        r = requests.get('https://api.github.com/repos/'
+                         f'{self.repository}/contents/{path}',
+                         json={'branch': self._branch_name},
+                         headers=self._headers)
+        if r.status_code == 404:
+            return None
+        r.raise_for_status()
+        return r.json()['sha']
+
+    def update_branch_file(self,
+                           path: PosixPath,
+                           contents: str,
+                           commit_summary: str,
+                           commit_body: Optional[str]) -> None:
+        r = requests.put('https://api.github.com/repos/'
+                         f'{self.repository}/contents/{path}',
+                         json={
+                             'message': (f'{commit_summary}\n{commit_body}'
+                                         if commit_body else commit_summary),
+                             'branch': self._branch_name,
+                             'content': base64.b64encode(contents.encode('utf-8')).decode('utf-8'),
+                             'sha': self.get_file_sha(path),
+                         },
+                         headers=self._headers)
+        r.raise_for_status()
+
+    def create_pull_request(self, head_ref: str) -> int:
+        r = requests.post('https://api.github.com/repos/'
+                          f'{self.repository}/pulls',
+                          json={
+                              'title': 'pipup',
+                              'head': self._branch_name,
+                              'base': head_ref,
+                          },
+                          headers=self._headers)
+        r.raise_for_status()
+        return r.json()['number']
+
+    def get_pull_request_actions(self) -> List[Tuple[str, bool]]:
+        r = requests.get('https://api.github.com/repos/'
+                         f'{self.repository}/actions/runs',
+                         json={'branch': self._branch_name},
+                         headers=self._headers)
+        r.raise_for_status()
+        return [
+            (action['name'], action['conclusion'] == 'success')
+            for action in r.json()['workflow_runs']
+        ]
+
+    def merge_pull_request(self, pull_request_id: int) -> None:
+        r = requests.put(f'https://api.github.com/repos/'
+                         f'{self.repository}/pulls/{pull_request_id}/merge',
+                         headers=self._headers)
+        r.raise_for_status()
+
+    def wait_for_workflows(self, required_workflows: List[str]) -> Optional[bool]:
+        while True:
+            successful_workflows = {
+                action_name.lower()
+                for action_name, action_success in self.get_pull_request_actions()
+                if action_success
+            }
+
+            logger.info(f'Found completed workflows: {successful_workflows}')
+            if all([required_workflow.lower() in successful_workflows
+                    for required_workflow in required_workflows]):
+                logger.info(f'All required jobs completed: {required_workflows}')
+                return True
+
+            logger.info('Missing required jobs, waiting....')
+            time.sleep(5)

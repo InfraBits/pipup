@@ -1,0 +1,19 @@
+---
+name: infrabits/pipup
+description: Automatic update of `pip` dependancies
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python 3.9
+      uses: actions/setup-python@v2
+      with: { python-version: '3.9' }
+    - shell: bash
+      run: pip install git+https://github.com/InfraBits/pipup.git@main
+    - uses: actions/checkout@v2
+    - shell: bash
+      run: |
+        pipup \
+        --merge \
+        --repository ${{ github.repository }}
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
