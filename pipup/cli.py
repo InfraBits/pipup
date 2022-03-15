@@ -63,7 +63,7 @@ def cli(debug: bool, merge: bool, repository: str) -> None:
     logger.info('Updating requirements')
     updated_requirements = updater.update_requirements()
 
-    if not all([
+    if not any([
         requirements.have_updates()
         for requirements in updated_requirements
     ]):
