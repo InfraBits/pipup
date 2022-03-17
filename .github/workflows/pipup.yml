@@ -3,4 +3,4 @@ on: {schedule: [{cron: '13 6 * * *'}], push: {branches: [main]}}
 permissions: {contents: read}
 jobs: {pipup: {runs-on: ubuntu-20.04,
                steps: [{uses: InfraBits/pipup@v1.0.1,
-                        with: {github-access-token: secrets.OVERLORD_PAT}}]}}
+                        with: {github-access-token: '${{ secrets.OVERLORD_PAT }}'}}]}}
