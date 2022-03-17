@@ -132,4 +132,4 @@ class Requirements:
         return '\n'.join([
             f'{dependency.export_requirements_txt()}'
             for dependency in self.dependencies
-        ])
+        ] + [''])
