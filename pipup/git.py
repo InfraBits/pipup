@@ -111,7 +111,7 @@ class Git:
         r.raise_for_status()
         return r.json()['number']
 
-    def get_pull_request_actions(self) -> Dict[str, str]:
+    def get_pull_request_actions(self, pull_request_id: int) -> Dict[str, str]:
         r = requests.get('https://api.github.com/repos/'
                          f'{self.repository}/actions/runs',
                          json={'branch': self._branch_name},
@@ -120,7 +120,10 @@ class Git:
         return {
             action['name']: action['conclusion']
             for action in r.json()['workflow_runs']
-            if action.get('completed_at', None)
+            if action['conclusion']
+            if action['event'] == 'pull_request'
+            if any([pr['number'] == pull_request_id
+                    for pr in action['pull_requests']])
         }
 
     def merge_pull_request(self, pull_request_id: int) -> None:
@@ -135,14 +138,14 @@ class Git:
                             headers=self._headers)
         r.raise_for_status()
 
-    def wait_for_workflows(self, required_workflows: List[str]) -> bool:
+    def wait_for_workflows(self, required_workflows: List[str], pull_request_id: int) -> bool:
         required_workflows = [required_workflow.lower()
                               for required_workflow in required_workflows]
         logger.info(f'Waiting for: {required_workflows}')
 
         while True:
             pull_request_actions = {k.lower(): v
-                                    for k, v in self.get_pull_request_actions().items()}
+                                    for k, v in self.get_pull_request_actions(pull_request_id).items()}
             logger.info(f'Found workflows: {pull_request_actions}')
 
             if all([

@@ -92,7 +92,7 @@ def _merge(settings: Settings, repository: str, updated_requirements: List[Requi
     logger.info(f'Creating pull request for {branch_name}')
     if pull_request_id := git.create_pull_request(head_ref):
         logger.info(f'Waiting for workflows to complete on {branch_name}')
-        if git.wait_for_workflows(settings.workflows):
+        if git.wait_for_workflows(settings.workflows, pull_request_id):
             logger.info(f'Merging pull request {pull_request_id}')
             git.merge_pull_request(pull_request_id)
         else:
