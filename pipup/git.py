@@ -120,6 +120,7 @@ class Git:
         return {
             action['name']: action['conclusion']
             for action in r.json()['workflow_runs']
+            if action.get('completed_at', None)
         }
 
     def merge_pull_request(self, pull_request_id: int) -> None:
@@ -145,9 +146,8 @@ class Git:
             logger.info(f'Found workflows: {pull_request_actions}')
 
             if all([
-                action_status is not None
-                for action_name, action_status in pull_request_actions.items()
-                if action_name in required_workflows
+                workflow in pull_request_actions
+                for workflow in required_workflows
             ]):
                 logger.info('All required workflows have concluded')
 
