@@ -144,8 +144,10 @@ class Git:
         logger.info(f'Waiting for: {required_workflows}')
 
         while True:
-            pull_request_actions = {k.lower(): v
-                                    for k, v in self.get_pull_request_actions(pull_request_id).items()}
+            pull_request_actions = {
+                k.lower(): v
+                for k, v in self.get_pull_request_actions(pull_request_id).items()
+            }
             logger.info(f'Found workflows: {pull_request_actions}')
 
             if all([
