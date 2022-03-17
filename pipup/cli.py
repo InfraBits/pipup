@@ -30,7 +30,7 @@ from typing import List, Optional
 
 import click
 
-from pipup.models import Requirements
+from .models import Requirements
 from .git import Git
 from .settings import Settings
 from .updater import Updater

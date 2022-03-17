@@ -61,6 +61,7 @@ class DependencyOptions:
 @dataclass
 class RawDependency:
     line: str
+
     def export_requirements_txt(self) -> str:
         return self.line
 

@@ -82,8 +82,9 @@ class Updater:
 
                 logger.debug(f'[{dependency.name}] Found releases after filtering: {releases}')
                 if releases:
-                    logger.debug(f'[{dependency.name}] Found latest release: {releases[0]}'
-                                 f' ({"not " if releases[0] == dependency.version_pin else ""}changed)')
+                    logger.debug(f'[{dependency.name}] Found latest release: {releases[0]} ('
+                                 f'{"not " if releases[0] == dependency.version_pin else ""}'
+                                 'changed)')
 
                 updates.append(
                     Update(dependency.name,
