@@ -28,7 +28,7 @@ import logging
 import os
 import time
 from pathlib import PosixPath
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict
 
 import requests
 
@@ -111,16 +111,16 @@ class Git:
         r.raise_for_status()
         return r.json()['number']
 
-    def get_pull_request_actions(self) -> List[Tuple[str, bool]]:
+    def get_pull_request_actions(self) -> Dict[str, str]:
         r = requests.get('https://api.github.com/repos/'
                          f'{self.repository}/actions/runs',
                          json={'branch': self._branch_name},
                          headers=self._headers)
         r.raise_for_status()
-        return [
-            (action['name'], action['conclusion'] == 'success')
+        return {
+            action['name']: action['conclusion']
             for action in r.json()['workflow_runs']
-        ]
+        }
 
     def merge_pull_request(self, pull_request_id: int) -> None:
         r = requests.put(f'https://api.github.com/repos/'
@@ -128,19 +128,30 @@ class Git:
                          headers=self._headers)
         r.raise_for_status()
 
-    def wait_for_workflows(self, required_workflows: List[str]) -> Optional[bool]:
+    def wait_for_workflows(self, required_workflows: List[str]) -> bool:
+        required_workflows = [required_workflow.lower()
+                              for required_workflow in required_workflows]
+        logger.info(f'Waiting for: {required_workflows}')
+
         while True:
-            successful_workflows = {
-                action_name.lower()
-                for action_name, action_success in self.get_pull_request_actions()
-                if action_success
-            }
+            pull_request_actions = {k.lower(): v
+                                    for k, v in self.get_pull_request_actions().items()}
+            logger.info(f'Found workflows: {pull_request_actions}')
 
-            logger.info(f'Found completed workflows: {successful_workflows}')
-            if all([required_workflow.lower() in successful_workflows
-                    for required_workflow in required_workflows]):
-                logger.info(f'All required jobs completed: {required_workflows}')
-                return True
+            if all([
+                action_status is not None
+                for action_name, action_status in pull_request_actions.items()
+                if action_name in required_workflows
+            ]):
+                logger.info('All required workflows have concluded')
 
-            logger.info('Missing required jobs, waiting....')
+                happy_bunny = True
+                for required_workflow in required_workflows:
+                    if pull_request_actions[required_workflow] != 'success':
+                        logger.error(f'Workflow for {required_workflow} failed'
+                                     f': {pull_request_actions[required_workflow]}')
+                        happy_bunny = False
+                return happy_bunny
+
+            logger.info('Missing required workflows, waiting....')
             time.sleep(5)
