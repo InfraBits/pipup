@@ -26,14 +26,75 @@ SOFTWARE.
 import logging
 import sys
 import uuid
+from typing import List, Optional
 
 import click
 
+from pipup.models import Requirements
 from .git import Git
 from .settings import Settings
 from .updater import Updater
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+def _update(settings: Settings) -> Optional[List[Requirements]]:
+    updater = Updater(settings)
+
+    logger.info('Resolving requirements')
+    updater.resolve_requirements()
+
+    logger.info('Updating requirements')
+    updated_requirements = updater.update_requirements()
+
+    if not any([
+        requirements.have_updates()
+        for requirements in updated_requirements
+    ]):
+        logger.info('No updates required')
+        return None
+
+    logger.info('Saving updated requirements files')
+    for requirements in updated_requirements:
+        if requirements.have_updates():
+            logger.info(f' - {requirements.file_path}')
+            with requirements.file_path.open('w') as fh:
+                fh.write(requirements.export_requirements_txt())
+
+    return updated_requirements
+
+
+def _merge(settings: Settings, repository: str, updated_requirements: List[Requirements]) -> None:
+    branch_name = f'pipup-{uuid.uuid4()}'
+    logger.info(f'Merging updated requirements files using {branch_name}')
+
+    # Handle the merging logic as required
+    git = Git(repository, branch_name)
+    head_ref, head_sha = git.get_head_ref()
+    if not head_ref or not head_sha:
+        logger.error('Failed to get head ref')
+        return
+
+    git.create_branch(head_sha)
+    for requirements in updated_requirements:
+        if requirements.have_updates():
+            commit_summary = requirements.update_summary()
+            commit_description = requirements.update_detail()
+
+            logger.info(f' - {requirements.file_path}')
+            logger.info(f'  Using commit summary: {commit_summary}')
+            logger.info(f'  Using commit description: {commit_description}')
+            git.update_branch_file(requirements.file_path,
+                                   requirements.export_requirements_txt(),
+                                   commit_summary,
+                                   commit_description)
+
+    logger.info(f'Creating pull request for {branch_name}')
+    if pull_request_id := git.create_pull_request(head_ref):
+        logger.info(f'Waiting for workflows to complete on {branch_name}')
+        if git.wait_for_workflows(settings.workflows):
+            logger.info(f'Merging pull request {pull_request_id}')
+            git.merge_pull_request(pull_request_id)
 
 
 @click.command()
@@ -55,60 +116,11 @@ def cli(debug: bool, merge: bool, repository: str) -> None:
     logger.info(f'Using settings: {settings}')
 
     # Perform the actual updates
-    updater = Updater(settings)
+    updated_requirements = _update(settings)
 
-    logger.info('Resolving requirements')
-    updater.resolve_requirements()
-
-    logger.info('Updating requirements')
-    updated_requirements = updater.update_requirements()
-
-    if not any([
-        requirements.have_updates()
-        for requirements in updated_requirements
-    ]):
-        logger.info('No updates required')
-        return
-
-    logger.info('Saving updated requirements files')
-    for requirements in updated_requirements:
-        if requirements.have_updates():
-            logger.info(f' - {requirements.file_path}')
-            with requirements.file_path.open('w') as fh:
-                fh.write(requirements.export_requirements_txt())
-
-    # Create a pull request if required
-    if merge:
-        branch_name = f'pipup-{uuid.uuid4()}'
-        logger.info(f'Merging updated requirements files using {branch_name}')
-
-        # Handle the merging logic as required
-        git = Git(repository, branch_name)
-        head_ref, head_sha = git.get_head_ref()
-        if not head_ref or not head_sha:
-            logger.error('Failed to get head ref')
-            return
-
-        git.create_branch(head_sha)
-        for requirements in updated_requirements:
-            if requirements.have_updates():
-                commit_summary = requirements.update_summary()
-                commit_description = requirements.update_detail()
-
-                logger.info(f' - {requirements.file_path}')
-                logger.info(f'  Using commit summary: {commit_summary}')
-                logger.info(f'  Using commit description: {commit_description}')
-                git.update_branch_file(requirements.file_path,
-                                       requirements.export_requirements_txt(),
-                                       commit_summary,
-                                       commit_description)
-
-        logger.info(f'Creating pull request for {branch_name}')
-        if pull_request_id := git.create_pull_request(head_ref):
-            logger.info(f'Waiting for workflows to complete on {branch_name}')
-            if git.wait_for_workflows(settings.workflows):
-                logger.info(f'Merging pull request {pull_request_id}')
-                git.merge_pull_request(pull_request_id)
+    # Create a pull request if required & we have changes
+    if merge and updated_requirements:
+        _merge(settings, repository, updated_requirements)
 
 
 if __name__ == '__main__':
