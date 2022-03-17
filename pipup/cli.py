@@ -95,6 +95,9 @@ def _merge(settings: Settings, repository: str, updated_requirements: List[Requi
         if git.wait_for_workflows(settings.workflows):
             logger.info(f'Merging pull request {pull_request_id}')
             git.merge_pull_request(pull_request_id)
+        else:
+            logger.info(f'Closing failed pull request {pull_request_id}')
+            git.delete_branch()
 
 
 @click.command()

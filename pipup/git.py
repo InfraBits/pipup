@@ -128,6 +128,12 @@ class Git:
                          headers=self._headers)
         r.raise_for_status()
 
+    def delete_branch(self) -> None:
+        r = requests.delete(f'https://api.github.com/repos/'
+                            f'{self.repository}/git/refs/heads/{self._branch_name}',
+                            headers=self._headers)
+        r.raise_for_status()
+
     def wait_for_workflows(self, required_workflows: List[str]) -> bool:
         required_workflows = [required_workflow.lower()
                               for required_workflow in required_workflows]
