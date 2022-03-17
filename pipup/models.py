@@ -26,7 +26,7 @@ SOFTWARE.
 import logging
 from dataclasses import dataclass
 from pathlib import PosixPath
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from dparse import parse, filetypes, dependencies
 from packaging.specifiers import SpecifierSet
@@ -59,9 +59,17 @@ class DependencyOptions:
 
 
 @dataclass
+class RawDependency:
+    line: str
+    def export_requirements_txt(self) -> str:
+        return self.line
+
+
+@dataclass
 class Dependency:
     name: str
     version_pin: Optional[str]
+    extras: Optional[Tuple[str]]
     options: DependencyOptions
 
     @staticmethod
@@ -69,6 +77,7 @@ class Dependency:
         return Dependency(
             dependency.name,
             f'{dependency.specs}'.lstrip('=') if len(dependency.specs) > 0 else None,
+            dependency.extras if len(dependency.extras) > 0 else None,
             DependencyOptions.parse_options(
                 '#'.join(dependency.line.split('#')[1:]).lstrip()
                 if '#' in dependency.line else
@@ -78,6 +87,8 @@ class Dependency:
 
     def export_requirements_txt(self) -> str:
         text = f"{self.name}"
+        if self.extras:
+            text += f"[{' '.join(self.extras)}]"
         if self.version_pin:
             text += f"=={self.version_pin}"
         if self.options.raw:
@@ -103,8 +114,14 @@ class Requirements:
     def parse_requirements_txt(file_path: PosixPath) -> 'Requirements':
         dependencies = []
         with file_path.open('r') as fh:
-            for dep in parse(fh.read(), filetypes.requirements_txt).dependencies:
-                dependencies.append(Dependency.parse_dependency(dep))
+            # parse does not support all lines, specifically git sourced dependencies
+            # thus explicitly parse each line, so we can maintain order...
+            for line in fh.readlines():
+                deps = parse(line, filetypes.requirements_txt).dependencies
+                if deps:
+                    dependencies.append(Dependency.parse_dependency(deps[0]))
+                else:
+                    dependencies.append(RawDependency(line.strip()))
         return Requirements(file_path, dependencies, [])
 
     def have_updates(self) -> bool:

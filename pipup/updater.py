@@ -28,7 +28,7 @@ from pathlib import PosixPath
 from typing import List
 
 from .index import Index
-from .models import Requirements, Update, Dependency
+from .models import Requirements, Update, Dependency, RawDependency
 from .settings import Settings
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -58,6 +58,13 @@ class Updater:
         for requirements in self._requirements:
             dependencies, updates = [], []
             for dependency in requirements.dependencies:
+                # This is something we can't really handle,
+                # but need to pass back for the export
+                if isinstance(dependency, RawDependency):
+                    logger.info(f'Ignoring due to parser: {dependency}')
+                    dependencies.append(dependency)
+                    continue
+
                 releases = []
                 if dependency.options.ignore:
                     logger.info(f'Ignoring due to inline config: {dependency.name}')
@@ -94,7 +101,7 @@ class Updater:
                 dependencies.append(
                     dependency
                     if not releases else
-                    Dependency(dependency.name, releases[0], dependency.options)
+                    Dependency(dependency.name, releases[0], dependency.extras, dependency.options)
                 )
 
             _requirements.append(
