@@ -1,6 +1,12 @@
 ---
 name: infrabits/pipup
 description: Automatic update of `pip` dependancies
+
+inputs:
+  github-access-token:
+    required: true
+    type: string
+
 runs:
   using: "composite"
   steps:
@@ -16,4 +22,4 @@ runs:
         --merge \
         --repository ${{ github.repository }}
       env:
-        GITHUB_TOKEN: ${{ github.token }}
+        GITHUB_TOKEN: ${{ inputs.github-access-token }}

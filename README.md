@@ -32,8 +32,11 @@ _Note: All dependencies are updated by default_
 ```yaml
 name: Update dependencies using pipup
 on: {schedule: [{cron: '13 6 * * *'}], push: {branches: [main]}}
-permissions: {contents: write, issues: write, pull-requests: write}
-jobs: {pipup: {runs-on: ubuntu-20.04, steps: [{uses: InfraBits/pipup@v1.0.0}]}}
+permissions: {contents: read}
+jobs: {pipup: {runs-on: ubuntu-20.04,
+               steps: [{uses: InfraBits/pipup@v1.0.1,
+                        with: {github-access-token: '${{ secrets.OVERLORD_PAT }}'}}]}}
 ```
 
 _Note: Change the schedule/branches to suit the local repository_
+_Note: A personal access token is required as the provided access token cannot trigger PR checks :(_
