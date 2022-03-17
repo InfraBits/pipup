@@ -98,6 +98,7 @@ def _merge(settings: Settings, repository: str, updated_requirements: List[Requi
         else:
             logger.info(f'Closing failed pull request {pull_request_id}')
             git.delete_branch()
+            sys.exit(1)
 
 
 @click.command()
