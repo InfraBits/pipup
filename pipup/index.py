@@ -24,6 +24,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
 import logging
+import re
 from typing import List
 
 import requests
@@ -32,6 +33,9 @@ from packaging import version
 from .settings import Settings
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+# x-ref: PEP 440
+PRE_RELEASE_PATTERN = re.compile(r'(a|b|rc|post|dev)[0-9]+$')
 
 
 class Index:
@@ -51,8 +55,10 @@ class Index:
         if package is None:
             raise ValueError(f'No release found for: {name}')
 
-        releases = sorted([f'{version.parse(rel)}'
-                           for rel in package["releases"].keys()],
+        releases = sorted([f'{version.parse(release)}'
+                           for release in package["releases"].keys()
+                           if PRE_RELEASE_PATTERN.search(release) is None
+                           if not any([r["yanked"] for r in package["releases"][release]])],
                           key=lambda x: version.parse(x),
                           reverse=True)
 
