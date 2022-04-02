@@ -98,7 +98,7 @@ class Git:
                          },
                          headers=self._headers)
         r.raise_for_status()
-        return r.json()['sha']
+        return r.json()['commit']['sha']
 
     def create_pull_request(self, summary: str, description: str, head_ref: str) -> int:
         r = requests.post('https://api.github.com/repos/'
