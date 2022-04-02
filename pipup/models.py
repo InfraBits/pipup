@@ -130,9 +130,11 @@ class Requirements:
                     for update in self.updates
                     if update.pin_changed]) > 0
 
+    def update_count(self) -> int:
+        return len([update for update in self.updates if update.pin_changed])
+
     def update_summary(self) -> str:
-        number_of_updates = len([update for update in self.updates if update.pin_changed])
-        return f'pipup: {number_of_updates} dependencies updated in {self.file_path}'
+        return f'pipup: {self.update_count()} dependencies updated in {self.file_path}'
 
     def update_detail(self) -> str:
         commit_body = ''

@@ -86,7 +86,7 @@ class Git:
                            path: PosixPath,
                            contents: str,
                            commit_summary: str,
-                           commit_body: Optional[str]) -> None:
+                           commit_body: Optional[str]) -> str:
         r = requests.put('https://api.github.com/repos/'
                          f'{self.repository}/contents/{path}',
                          json={
@@ -98,12 +98,14 @@ class Git:
                          },
                          headers=self._headers)
         r.raise_for_status()
+        return r.json()['sha']
 
-    def create_pull_request(self, head_ref: str) -> int:
+    def create_pull_request(self, summary: str, description: str, head_ref: str) -> int:
         r = requests.post('https://api.github.com/repos/'
                           f'{self.repository}/pulls',
                           json={
-                              'title': 'pipup',
+                              'title': summary,
+                              'body': description,
                               'head': self._branch_name,
                               'base': head_ref,
                           },
@@ -129,6 +131,15 @@ class Git:
     def merge_pull_request(self, pull_request_id: int) -> None:
         r = requests.put(f'https://api.github.com/repos/'
                          f'{self.repository}/pulls/{pull_request_id}/merge',
+                         headers=self._headers)
+        r.raise_for_status()
+
+    def create_commit_comment(self, sha: str, comment: str) -> None:
+        r = requests.put(f'https://api.github.com/repos/'
+                         f'{self.repository}/commits/{sha}/comments',
+                         json={
+                             'body': comment,
+                         },
                          headers=self._headers)
         r.raise_for_status()
 

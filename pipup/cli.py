@@ -76,27 +76,39 @@ def _merge(settings: Settings, repository: str, updated_requirements: List[Requi
         return
 
     git.create_branch(head_sha)
+
+    pull_request_summary = f'pipup ({sum([r.update_count() for r in updated_requirements])})'
+    pull_request_description = ''
+    branch_sha = None
     for requirements in updated_requirements:
         if requirements.have_updates():
             commit_summary = requirements.update_summary()
             commit_description = requirements.update_detail()
 
+            pull_request_description += f'{requirements.file_path}:\n'
+            pull_request_description += f'{commit_description}\n'
+
             logger.info(f' - {requirements.file_path}')
             logger.info(f'  Using commit summary: {commit_summary}')
             logger.info(f'  Using commit description: {commit_description}')
-            git.update_branch_file(requirements.file_path,
-                                   requirements.export_requirements_txt(),
-                                   commit_summary,
-                                   commit_description)
+            branch_sha = git.update_branch_file(requirements.file_path,
+                                                requirements.export_requirements_txt(),
+                                                commit_summary,
+                                                commit_description)
 
     logger.info(f'Creating pull request for {branch_name}')
-    if pull_request_id := git.create_pull_request(head_ref):
+    assert branch_sha is not None
+    if pull_request_id := git.create_pull_request(head_ref,
+                                                  pull_request_summary,
+                                                  pull_request_description.strip()):
         logger.info(f'Waiting for workflows to complete on {branch_name}')
         if git.wait_for_workflows(settings.workflows, pull_request_id):
             logger.info(f'Merging pull request {pull_request_id}')
             git.merge_pull_request(pull_request_id)
         else:
             logger.info(f'Closing failed pull request {pull_request_id}')
+            git.create_commit_comment(branch_sha,
+                                      f'Expected workflow ({", ".join(settings.workflows)}) failed')
             git.delete_branch()
             sys.exit(1)
 
