@@ -25,7 +25,7 @@ SOFTWARE.
 '''
 import logging
 from pathlib import PosixPath
-from typing import List
+from typing import List, Sequence, Union
 
 from .index import Index
 from .models import Requirements, Update, Dependency, RawDependency
@@ -54,9 +54,10 @@ class Updater:
         return self._requirements
 
     def update_requirements(self) -> List[Requirements]:
-        _requirements = []
+        _requirements: List[Requirements] = []
         for requirements in self._requirements:
-            dependencies, updates = [], []
+            dependencies: List[Union[RawDependency, Dependency]] = []
+            updates: List[Update] = []
             for dependency in requirements.dependencies:
                 # This is something we can't really handle,
                 # but need to pass back for the export

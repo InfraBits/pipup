@@ -48,7 +48,8 @@ class Git:
         r = requests.get(f'https://api.github.com/repos/{self.repository}',
                          headers=self._headers)
         r.raise_for_status()
-        return r.json()['default_branch']
+        data: Dict[str, Tuple[str, str]] = r.json()
+        return data['default_branch']
 
     def get_head_ref(self) -> Tuple[Optional[str], Optional[str]]:
         r = requests.get('https://api.github.com/repos/'
@@ -80,7 +81,8 @@ class Git:
         if r.status_code == 404:
             return None
         r.raise_for_status()
-        return r.json()['sha']
+        data: Dict[str, Optional[str]] = r.json()
+        return data['sha']
 
     def update_branch_file(self,
                            path: PosixPath,
@@ -98,7 +100,8 @@ class Git:
                          },
                          headers=self._headers)
         r.raise_for_status()
-        return r.json()['commit']['sha']
+        data: Dict[str, Dict[str, str]] = r.json()
+        return data['commit']['sha']
 
     def create_pull_request(self, head_ref: str, summary: str, description: str) -> int:
         r = requests.post('https://api.github.com/repos/'
@@ -111,7 +114,8 @@ class Git:
                           },
                           headers=self._headers)
         r.raise_for_status()
-        return r.json()['number']
+        data: Dict[str, int] = r.json()
+        return data['number']
 
     def get_pull_request_actions(self, pull_request_id: int) -> Dict[str, str]:
         r = requests.get('https://api.github.com/repos/'

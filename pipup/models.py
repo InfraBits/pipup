@@ -26,9 +26,9 @@ SOFTWARE.
 import logging
 from dataclasses import dataclass
 from pathlib import PosixPath
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
-from dparse import parse, filetypes, dependencies
+from dparse import parse, filetypes, dependencies  # type: ignore
 from packaging.specifiers import SpecifierSet
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -108,12 +108,12 @@ class Update:
 @dataclass
 class Requirements:
     file_path: PosixPath
-    dependencies: List[Dependency]
+    dependencies: List[Union[RawDependency, Dependency]]
     updates: List[Update]
 
     @staticmethod
     def parse_requirements_txt(file_path: PosixPath) -> 'Requirements':
-        dependencies = []
+        dependencies: List[Union[RawDependency, Dependency]] = []
         with file_path.open('r') as fh:
             # parse does not support all lines, specifically git sourced dependencies
             # thus explicitly parse each line, so we can maintain order...
