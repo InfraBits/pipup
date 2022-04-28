@@ -25,7 +25,7 @@ SOFTWARE.
 '''
 import logging
 from pathlib import PosixPath
-from typing import List, Sequence, Union
+from typing import List, Union
 
 from .index import Index
 from .models import Requirements, Update, Dependency, RawDependency
