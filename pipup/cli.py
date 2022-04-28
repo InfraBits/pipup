@@ -115,7 +115,6 @@ def _merge(settings: Settings, repository: str, updated_requirements: List[Requi
             except Exception as e:
                 logger.exception('Failed to create commit comment', e)
             git.delete_branch()
-            sys.exit(1)
 
 
 @click.command()
