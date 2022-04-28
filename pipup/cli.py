@@ -108,10 +108,12 @@ def _merge(settings: Settings, repository: str, updated_requirements: List[Requi
         else:
             logger.info(f'Closing failed pull request {pull_request_id}')
             try:
-                git.create_commit_comment(branch_sha,
-                                          f'Expected workflow ({", ".join(settings.workflows)}) failed')
+                git.create_commit_comment(
+                    branch_sha,
+                    f'Expected workflow ({", ".join(settings.workflows)}) failed'
+                )
             except Exception as e:
-                logger.exception(f'Failed to create commit comment', e)
+                logger.exception('Failed to create commit comment', e)
             git.delete_branch()
             sys.exit(1)
 
