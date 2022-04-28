@@ -135,12 +135,10 @@ class Git:
         r.raise_for_status()
 
     def create_commit_comment(self, sha: str, comment: str) -> None:
-        r = requests.put(f'https://api.github.com/repos/'
-                         f'{self.repository}/commits/{sha}/comments',
-                         json={
-                             'body': comment,
-                         },
-                         headers=self._headers)
+        r = requests.post(f'https://api.github.com/repos/'
+                          f'{self.repository}/commits/{sha}/comments',
+                          json={'body': comment},
+                          headers=self._headers)
         r.raise_for_status()
 
     def delete_branch(self) -> None:
