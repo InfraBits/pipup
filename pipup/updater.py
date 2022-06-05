@@ -51,7 +51,7 @@ class Updater:
 
             logger.info(f'Discovered: {requirements}')
             self._requirements.append(
-                Requirements.parse_requirements_txt(requirements)
+                Requirements.parse_requirements_txt(path, requirements)
             )
         return self._requirements
 

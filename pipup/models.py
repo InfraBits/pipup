@@ -116,7 +116,7 @@ class Requirements:
     updates: List[Update]
 
     @staticmethod
-    def parse_requirements_txt(file_path: PosixPath) -> 'Requirements':
+    def parse_requirements_txt(base_path: PosixPath, file_path: PosixPath) -> 'Requirements':
         dependencies: List[Union[RawDependency, GitHubDependency, Dependency]] = []
         with file_path.open('r') as fh:
             # parse does not support all lines, specifically git sourced dependencies
@@ -135,7 +135,7 @@ class Requirements:
                         dependencies.append(dep)
                         continue
                 dependencies.append(RawDependency(line.strip()))
-        return Requirements(file_path, dependencies, [])
+        return Requirements(file_path.relative_to(base_path), dependencies, [])
 
     def have_updates(self) -> bool:
         return len([update

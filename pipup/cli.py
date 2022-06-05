@@ -59,7 +59,7 @@ def _update(path: PosixPath, settings: Settings) -> Optional[List[Requirements]]
     for requirements in updated_requirements:
         if requirements.have_updates():
             logger.info(f' - {requirements.file_path}')
-            with requirements.file_path.open('w') as fh:
+            with (path / requirements.file_path).open('w') as fh:
                 fh.write(requirements.export_requirements_txt())
 
     return updated_requirements
@@ -92,7 +92,7 @@ def _merge(path: PosixPath, settings: Settings, repository: str, updated_require
             logger.info(f' - {requirements.file_path}')
             logger.info(f'  Using commit summary: {commit_summary}')
             logger.info(f'  Using commit description: {commit_description}')
-            branch_sha = git.update_branch_file(requirements.file_path.relative_to(path),
+            branch_sha = git.update_branch_file(requirements.file_path,
                                                 requirements.export_requirements_txt(),
                                                 commit_summary,
                                                 commit_description)
