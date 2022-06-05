@@ -47,7 +47,9 @@ class Settings:
                              'requirements-dev.txt',
                              'dev-requirements.txt',
                              'requirements-prod.txt',
-                             'prod-requirements.txt'],
+                             'prod-requirements.txt',
+                             'requirements-test.txt',
+                             'test-requirements.txt'],
             'workflows': ['CI'],
             'mirrors': ['https://pypi.org/pypi/{name}/json'],
         }
