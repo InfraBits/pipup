@@ -100,7 +100,7 @@ class GitIndex:
         if data is None:
             raise ValueError(f'No releases found for: {data}')
 
-        return sorted([f'{version.parse(release["tag_name"])}'
+        return sorted([release["tag_name"]
                        for release in data
                        if PRE_RELEASE_PATTERN.search(release["tag_name"]) is None
                        if not release["draft"] and not release["prerelease"]],
