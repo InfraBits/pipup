@@ -65,7 +65,7 @@ def _update(path: PosixPath, settings: Settings) -> Optional[List[Requirements]]
     return updated_requirements
 
 
-def _merge(settings: Settings, repository: str, updated_requirements: List[Requirements]) -> None:
+def _merge(path: PosixPath, settings: Settings, repository: str, updated_requirements: List[Requirements]) -> None:
     branch_name = f'pipup-{uuid.uuid4()}'
     logger.info(f'Merging updated requirements files using {branch_name}')
 
@@ -92,7 +92,7 @@ def _merge(settings: Settings, repository: str, updated_requirements: List[Requi
             logger.info(f' - {requirements.file_path}')
             logger.info(f'  Using commit summary: {commit_summary}')
             logger.info(f'  Using commit description: {commit_description}')
-            branch_sha = git.update_branch_file(requirements.file_path,
+            branch_sha = git.update_branch_file(requirements.file_path.relative_to(path),
                                                 requirements.export_requirements_txt(),
                                                 commit_summary,
                                                 commit_description)
@@ -142,7 +142,7 @@ def cli(debug: bool, path: PosixPath, merge: bool, repository: str) -> None:
 
     # Create a pull request if required & we have changes
     if merge and updated_requirements:
-        _merge(settings, repository, updated_requirements)
+        _merge(path, settings, repository, updated_requirements)
 
 
 if __name__ == '__main__':
