@@ -27,6 +27,7 @@ import logging
 from dataclasses import dataclass
 from pathlib import PosixPath
 from typing import List, Optional, Tuple, Union
+from urllib.parse import urlparse
 
 from dparse import parse, filetypes, dependencies  # type: ignore
 from packaging.specifiers import SpecifierSet
@@ -38,11 +39,12 @@ logger: logging.Logger = logging.getLogger(__name__)
 class DependencyOptions:
     specifier: SpecifierSet
     ignore: Optional[bool]
+    use_tags: Optional[bool]
     raw: Optional[str]
 
     @staticmethod
     def parse_options(text: Optional[str]) -> 'DependencyOptions':
-        specifier, ignore, raw = SpecifierSet(), False, text
+        specifier, ignore, use_tags, raw = SpecifierSet(), False, False, text
 
         if text:
             text_to_parse = text
@@ -54,8 +56,10 @@ class DependencyOptions:
                     specifier = SpecifierSet(option_to_parse.split(':')[1])
                 elif option_to_parse == 'ignore':
                     ignore = True
+                elif option_to_parse == 'git:tags':
+                    use_tags = True
 
-        return DependencyOptions(specifier, ignore, raw)
+        return DependencyOptions(specifier, ignore, use_tags, raw)
 
 
 @dataclass
@@ -113,7 +117,7 @@ class Requirements:
 
     @staticmethod
     def parse_requirements_txt(file_path: PosixPath) -> 'Requirements':
-        dependencies: List[Union[RawDependency, Dependency]] = []
+        dependencies: List[Union[RawDependency, GitHubDependency, Dependency]] = []
         with file_path.open('r') as fh:
             # parse does not support all lines, specifically git sourced dependencies
             # thus explicitly parse each line, so we can maintain order...
@@ -121,8 +125,16 @@ class Requirements:
                 deps = parse(line, filetypes.requirements_txt).dependencies
                 if deps:
                     dependencies.append(Dependency.parse_dependency(deps[0]))
-                else:
-                    dependencies.append(RawDependency(line.strip()))
+                    continue
+                if (
+                    (line.strip().startswith('git+https://github.com/')
+                     or line.strip().startswith('git+ssh://git@github.com/'))
+                    and '#egg=' in line.strip()
+                ):
+                    if dep := GitHubDependency.parse_line(line.strip()):
+                        dependencies.append(dep)
+                        continue
+                dependencies.append(RawDependency(line.strip()))
         return Requirements(file_path, dependencies, [])
 
     def have_updates(self) -> bool:
@@ -153,3 +165,64 @@ class Requirements:
             f'{dependency.export_requirements_txt()}'
             for dependency in self.dependencies
         ] + [''])
+
+
+@dataclass
+class GitHubDependency(Dependency):
+    git_schema: str
+    github_org: str
+    github_repo: str
+    version_pin: Optional[str]
+
+    @staticmethod
+    def parse_line(line: str) -> Optional['GitHubDependency']:
+        o = urlparse(line.split(' ')[0])
+        current_scheme = o.scheme
+        current_url = o.path.split('@')[0] if '@' in o.path else o.path
+        current_tag = o.path.split('@')[1] if '@' in o.path else None
+
+        if not current_url.endswith('.git'):
+            # Not sure how to handle this
+            logger.error(f'Found github url not pointing to git repo? {o}')
+            return None
+
+        path_parts = current_url.lstrip('/').split('/')
+        if len(path_parts) != 2:
+            # Not sure how to handle this
+            logger.error(f'Found github url not pointing to org/repo? {path_parts}')
+            return None
+
+        extra = ' '.join(line.split(' ')[1:]) if ' ' in line else ''
+        dep_line = o.fragment.replace("egg=", "")
+        if current_tag:
+            dep_line += f'=={current_tag}'
+        if extra:
+            dep_line += f' {extra}'
+
+        logger.debug(f'Using "{dep_line}" for "{line}"')
+        dependency = parse(dep_line, filetypes.requirements_txt).dependencies[0]
+        dependency.version_pin = current_tag
+
+        return GitHubDependency(
+            dependency.name,
+            f'{dependency.specs}'.lstrip('=') if len(dependency.specs) > 0 else None,
+            dependency.extras if len(dependency.extras) > 0 else None,
+            DependencyOptions.parse_options(
+                '#'.join(dependency.line.split('#')[1:]).lstrip()
+                if '#' in dependency.line else
+                None
+            ),
+            current_scheme,
+            path_parts[0],
+            '.'.join(path_parts[1].split('.')[:-1])  # Strip off .git,
+        )
+
+    def export_requirements_txt(self) -> str:
+        text = f"{self.git_schema}://{'git@' if self.git_schema == 'git+ssh' else ''}"
+        text += f"github.com/{self.github_org}/{self.github_repo}.git"
+        if self.version_pin:
+            text += f"@{self.version_pin}"
+        text += f"#egg={self.name}"
+        if self.options.raw:
+            text += f" # {self.options.raw}"
+        return text

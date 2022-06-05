@@ -27,8 +27,8 @@ import logging
 from pathlib import PosixPath
 from typing import List, Union
 
-from .index import Index
-from .models import Requirements, Update, Dependency, RawDependency
+from .index import Index, GitIndex
+from .models import Requirements, Update, Dependency, RawDependency, GitHubDependency
 from .settings import Settings
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -40,6 +40,7 @@ class Updater:
         self._settings = settings
         self._requirements: List[Requirements] = []
         self._index = Index(settings)
+        self._git = GitIndex(settings)
 
     def resolve_requirements(self) -> List[Requirements]:
         for requirements_path in self._settings.requirements:
@@ -57,7 +58,7 @@ class Updater:
     def update_requirements(self) -> List[Requirements]:
         _requirements: List[Requirements] = []
         for requirements in self._requirements:
-            dependencies: List[Union[RawDependency, Dependency]] = []
+            dependencies: List[Union[RawDependency, GitHubDependency, Dependency]] = []
             updates: List[Update] = []
             for dependency in requirements.dependencies:
                 # This is something we can't really handle,
@@ -72,6 +73,13 @@ class Updater:
                     logger.info(f'Ignoring due to inline config: {dependency.name}')
                 elif '://' in dependency.name:
                     logger.info(f'Ignoring due to url: {dependency.name}')
+                elif isinstance(dependency, GitHubDependency):
+                    if dependency.options.use_tags:
+                        releases = self._git.get_tags_for_repo(dependency.github_org,
+                                                               dependency.github_repo)
+                    else:
+                        releases = self._git.get_releases_for_repo(dependency.github_org,
+                                                                   dependency.github_repo)
                 else:
                     releases = self._index.get_releases_for_package(dependency.name)
 
@@ -104,7 +112,12 @@ class Updater:
                 dependencies.append(
                     dependency
                     if not releases else
-                    Dependency(dependency.name, releases[0], dependency.extras, dependency.options)
+                    (GitHubDependency(dependency.name, releases[0], dependency.extras,
+                                      dependency.options, dependency.git_schema,
+                                      dependency.github_org, dependency.github_repo)
+                     if isinstance(dependency, GitHubDependency) else
+                     Dependency(dependency.name, releases[0],
+                                dependency.extras, dependency.options))
                 )
 
             _requirements.append(
