@@ -24,6 +24,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
 import logging
+import os
 import re
 from typing import List, Pattern
 
@@ -63,3 +64,45 @@ class Index:
                           reverse=True)
 
         return releases
+
+
+class GitIndex:
+    def __init__(self, settings: Settings) -> None:
+        self._settings = settings
+
+    def get_tags_for_repo(self, org: str, repo: str) -> List[str]:
+        r = requests.get(f'https://api.github.com/repos/{org}/{repo}/tags',
+                         headers={
+                             'Authorization': f'token {os.environ.get("GITHUB_TOKEN", "")}',
+                             'Accept': 'application/vnd.github.v3+json'
+                         })
+        r.raise_for_status()
+        data = r.json()
+
+        if data is None:
+            raise ValueError(f'No tags found for: {data}')
+
+        return sorted([f'{version.parse(tag["name"])}'
+                       for tag in data
+                       if PRE_RELEASE_PATTERN.search(tag["name"]) is None],
+                      key=lambda x: version.parse(x),
+                      reverse=True)
+
+    def get_releases_for_repo(self, org: str, repo: str) -> List[str]:
+        r = requests.get(f'https://api.github.com/repos/{org}/{repo}/releases',
+                         headers={
+                             'Authorization': f'token {os.environ.get("GITHUB_TOKEN", "")}',
+                             'Accept': 'application/vnd.github.v3+json'
+                         })
+        r.raise_for_status()
+        data = r.json()
+
+        if data is None:
+            raise ValueError(f'No releases found for: {data}')
+
+        return sorted([f'{version.parse(release["tag_name"])}'
+                       for release in data
+                       if PRE_RELEASE_PATTERN.search(release["tag_name"]) is None
+                       if not release["draft"] and not release["prerelease"]],
+                      key=lambda x: version.parse(x),
+                      reverse=True)

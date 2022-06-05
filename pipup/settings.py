@@ -40,8 +40,8 @@ class Settings:
     mirrors: List[str]
 
     @staticmethod
-    def load() -> 'Settings':
-        settings_path = PosixPath('.pipup.yaml')
+    def load(path: PosixPath) -> 'Settings':
+        settings_path = path / '.pipup.yaml'
         settings = {
             'requirements': ['requirements.txt',
                              'requirements-dev.txt',
