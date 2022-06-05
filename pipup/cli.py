@@ -26,6 +26,7 @@ SOFTWARE.
 import logging
 import sys
 import uuid
+from pathlib import PosixPath
 from typing import List, Optional
 
 import click
@@ -38,8 +39,8 @@ from .updater import Updater
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-def _update(settings: Settings) -> Optional[List[Requirements]]:
-    updater = Updater(settings)
+def _update(path: PosixPath, settings: Settings) -> Optional[List[Requirements]]:
+    updater = Updater(path, settings)
 
     logger.info('Resolving requirements')
     updater.resolve_requirements()
@@ -121,7 +122,8 @@ def _merge(settings: Settings, repository: str, updated_requirements: List[Requi
 @click.option('--debug', is_flag=True, help='Increase logging level to debug')
 @click.option('--merge', is_flag=True, help='Merge changes into a GitHub repo')
 @click.option('--repository', help='Name of the GitHub repo these files belong to')
-def cli(debug: bool, merge: bool, repository: str) -> None:
+@click.option('--path', help='Path to update', type=PosixPath, default=PosixPath.cwd())
+def cli(debug: bool, path: PosixPath, merge: bool, repository: str) -> None:
     '''pipup - Simple requirements updater.'''
     logging.basicConfig(stream=sys.stderr,
                         level=(logging.DEBUG if debug else logging.INFO),
@@ -132,11 +134,11 @@ def cli(debug: bool, merge: bool, repository: str) -> None:
         return
 
     # Load the settings for our runtime
-    settings = Settings.load()
+    settings = Settings.load(path)
     logger.info(f'Using settings: {settings}')
 
     # Perform the actual updates
-    updated_requirements = _update(settings)
+    updated_requirements = _update(path, settings)
 
     # Create a pull request if required & we have changes
     if merge and updated_requirements:

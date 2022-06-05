@@ -35,14 +35,15 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class Updater:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, path: PosixPath, settings: Settings) -> None:
+        self._path = path
         self._settings = settings
         self._requirements: List[Requirements] = []
         self._index = Index(settings)
 
     def resolve_requirements(self) -> List[Requirements]:
         for requirements_path in self._settings.requirements:
-            requirements = PosixPath(requirements_path)
+            requirements = self._path / requirements_path
             if not requirements.is_file():
                 logger.info(f'Skipping: {requirements}')
                 continue
