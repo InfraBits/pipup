@@ -36,7 +36,7 @@ from .settings import Settings
 logger: logging.Logger = logging.getLogger(__name__)
 
 # x-ref: PEP 440
-PRE_RELEASE_PATTERN: Pattern[str] = re.compile(r'(a|b|rc|post|dev)[0-9]+$')
+PRE_RELEASE_PATTERN: Pattern[str] = re.compile(r'(a|b|rc|dev)[0-9]+$')
 
 
 class Index:
