@@ -65,7 +65,8 @@ def _update(path: PosixPath, settings: Settings) -> Optional[List[Requirements]]
     return updated_requirements
 
 
-def _merge(path: PosixPath, settings: Settings, repository: str, updated_requirements: List[Requirements]) -> None:
+def _merge(path: PosixPath, settings: Settings, repository: str,
+           updated_requirements: List[Requirements]) -> None:
     branch_name = f'pipup-{uuid.uuid4()}'
     logger.info(f'Merging updated requirements files using {branch_name}')
 
