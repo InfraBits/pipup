@@ -93,7 +93,7 @@ class Dependency:
     def export_requirements_txt(self) -> str:
         text = f"{self.name}"
         if self.extras:
-            text += f"[{' '.join(self.extras)}]"
+            text += f"[{', '.join(self.extras)}]"
         if self.version_pin:
             text += f"=={self.version_pin}"
         if self.options.raw:
