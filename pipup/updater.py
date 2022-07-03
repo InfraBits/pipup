@@ -25,8 +25,9 @@ SOFTWARE.
 '''
 import logging
 from pathlib import PosixPath
-from typing import List, Union
+from typing import List, Union, Optional
 
+from .git import GithubApp
 from .index import Index, GitIndex
 from .models import Requirements, Update, Dependency, RawDependency, GitHubDependency
 from .settings import Settings
@@ -35,12 +36,15 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class Updater:
-    def __init__(self, path: PosixPath, settings: Settings) -> None:
+    def __init__(self,
+                 path: PosixPath,
+                 settings: Settings,
+                 github_app: Optional[GithubApp]) -> None:
         self._path = path
         self._settings = settings
         self._requirements: List[Requirements] = []
         self._index = Index(settings)
-        self._git = GitIndex(settings)
+        self._git = GitIndex(settings, github_app)
 
     def resolve_requirements(self) -> List[Requirements]:
         for requirements_path in self._settings.requirements:

@@ -40,8 +40,10 @@ from .updater import Updater
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-def _update(path: PosixPath, settings: Settings) -> Optional[List[Requirements]]:
-    updater = Updater(path, settings)
+def _update(path: PosixPath,
+            settings: Settings,
+            github_app: Optional[GithubApp]) -> Optional[List[Requirements]]:
+    updater = Updater(path, settings, github_app)
 
     logger.info('Resolving requirements')
     updater.resolve_requirements()
@@ -147,15 +149,16 @@ def cli(debug: bool,
     settings = Settings.load(path)
     logger.info(f'Using settings: {settings}')
 
+    # Setup a GithubApp if needed
+    github_app: Optional[GithubApp] = None
+    if github_app_id and github_app_key:
+        github_app = GithubApp(github_app_id, base64.b64decode(github_app_key).decode('utf-8'))
+
     # Perform the actual updates
-    updated_requirements = _update(path, settings)
+    updated_requirements = _update(path, settings, github_app)
 
     # Create a pull request if required & we have changes
     if merge and updated_requirements:
-        github_app: Optional[GithubApp] = None
-        if github_app_id and github_app_key:
-            github_app = GithubApp(github_app_id, base64.b64decode(github_app_key).decode('utf-8'))
-
         _merge(settings, repository, updated_requirements, github_app)
 
 

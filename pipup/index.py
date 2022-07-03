@@ -26,11 +26,12 @@ SOFTWARE.
 import logging
 import os
 import re
-from typing import List, Pattern
+from typing import List, Pattern, Optional, Dict
 
 import requests
 from packaging import version
 
+from .git import GithubApp
 from .settings import Settings
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -67,15 +68,22 @@ class Index:
 
 
 class GitIndex:
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, github_app: Optional[GithubApp]) -> None:
         self._settings = settings
+        self._github_app = github_app
+
+    def _build_headers(self, org: str, repo: str) -> Dict[str, str]:
+        headers = {'Accept': 'application/vnd.github.v3+json'}
+        if self._github_app is not None:
+            access_token = self._github_app.get_access_token(f'{org}/{repo}')
+            headers |= {'Authorization': f'Bearer {access_token}'}
+        else:
+            headers |= {'Authorization': f'token {os.environ.get("GITHUB_TOKEN", "")}'}
+        return headers
 
     def get_tags_for_repo(self, org: str, repo: str) -> List[str]:
         r = requests.get(f'https://api.github.com/repos/{org}/{repo}/tags',
-                         headers={
-                             'Authorization': f'token {os.environ.get("GITHUB_TOKEN", "")}',
-                             'Accept': 'application/vnd.github.v3+json'
-                         })
+                         headers=self._build_headers(org, repo))
         r.raise_for_status()
         data = r.json()
 
@@ -90,10 +98,7 @@ class GitIndex:
 
     def get_releases_for_repo(self, org: str, repo: str) -> List[str]:
         r = requests.get(f'https://api.github.com/repos/{org}/{repo}/releases',
-                         headers={
-                             'Authorization': f'token {os.environ.get("GITHUB_TOKEN", "")}',
-                             'Accept': 'application/vnd.github.v3+json'
-                         })
+                         headers=self._build_headers(org, repo))
         r.raise_for_status()
         data = r.json()
 
