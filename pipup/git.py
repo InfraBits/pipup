@@ -27,6 +27,7 @@ import base64
 import logging
 import os
 import time
+import jwt
 from pathlib import PosixPath
 from typing import Optional, List, Tuple, Dict
 
@@ -35,18 +36,84 @@ import requests
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+class GithubApp:
+    _app_id: int
+    _private_key: str
+    _bearer_token: Optional[str] = None
+    _bearer_token_expiry: Optional[int] = None
+
+    def __init__(self, app_id: int, private_key: str) -> None:
+        self._app_id = app_id
+        self._private_key = private_key
+
+    def _create_bearer_token(self) -> Tuple[str, int]:
+        unix_now = int(time.time())
+        unix_start = unix_now - 60  # Allow for clock drift
+        unix_end = unix_now + 600
+        return jwt.encode(
+            payload={
+                'iat': unix_start,
+                'exp': unix_end,
+                'iss': self._app_id
+            },
+            key=self._private_key,
+            algorithm='RS256'
+        ), unix_end
+
+    def _get_bearer_token(self) -> str:
+        if (
+            self._bearer_token is None
+            or self._bearer_token_expiry is None
+            or self._bearer_token_expiry <= int(time.time())
+        ):
+            self._bearer_token, self._bearer_token_expiry = self._create_bearer_token()
+        return self._bearer_token
+
+    def _get_access_token(self, installation_id: int) -> str:
+        r = requests.post(
+            f'https://api.github.com/app/installations/{installation_id}/access_tokens',
+            headers={
+                'Authorization': f'Bearer {self._get_bearer_token()}',
+            },
+        )
+        return str(r.json()['token'])
+
+    def _get_installation_id(self, repository: str) -> int:
+        r = requests.get(
+            f'https://api.github.com/repos/{repository}/installation',
+            headers={
+                'Authorization': f'Bearer {self._get_bearer_token()}',
+            },
+        )
+        r.raise_for_status()
+        return int(r.json()['id'])
+
+    def get_access_token(self, repository: str) -> str:
+        return self._get_access_token(
+            self._get_installation_id(repository)
+        )
+
+
 class Git:
-    def __init__(self, repository: str, branch_name: str) -> None:
+    def __init__(self, repository: str, branch_name: str, github_app: Optional[GithubApp]) -> None:
         self.repository = repository
-        self._headers = {
-            'Authorization': f'token {os.environ.get("GITHUB_TOKEN", "")}',
+        self._branch_name = branch_name
+        self._github_app = github_app
+
+    def _build_headers(self) -> Dict[str, str]:
+        headers = {
             'Accept': 'application/vnd.github.v3+json'
         }
-        self._branch_name = branch_name
+        if self._github_app is not None:
+            access_token = self._github_app.get_access_token(self.repository)
+            headers['Authorization'] = f'Bearer {access_token}'
+        else:
+            headers['Authorization'] = f'token {os.environ.get("GITHUB_TOKEN", "")}'
+        return headers
 
     def get_default_branch(self) -> Tuple[str, str]:
         r = requests.get(f'https://api.github.com/repos/{self.repository}',
-                         headers=self._headers)
+                         headers=self._build_headers())
         r.raise_for_status()
         data: Dict[str, Tuple[str, str]] = r.json()
         return data['default_branch']
@@ -54,7 +121,7 @@ class Git:
     def get_head_ref(self) -> Tuple[Optional[str], Optional[str]]:
         r = requests.get('https://api.github.com/repos/'
                          f'{self.repository}/git/refs',
-                         headers=self._headers)
+                         headers=self._build_headers())
         r.raise_for_status()
 
         default_branch = self.get_default_branch()
@@ -70,14 +137,14 @@ class Git:
                               'ref': f'refs/heads/{self._branch_name}',
                               'sha': base_sha,
                           },
-                          headers=self._headers)
+                          headers=self._build_headers())
         r.raise_for_status()
 
     def get_file_sha(self, path: PosixPath) -> Optional[str]:
         r = requests.get('https://api.github.com/repos/'
                          f'{self.repository}/contents/{path}',
                          json={'branch': self._branch_name},
-                         headers=self._headers)
+                         headers=self._build_headers())
         if r.status_code == 404:
             return None
         r.raise_for_status()
@@ -98,7 +165,7 @@ class Git:
                              'content': base64.b64encode(contents.encode('utf-8')).decode('utf-8'),
                              'sha': self.get_file_sha(path),
                          },
-                         headers=self._headers)
+                         headers=self._build_headers())
         r.raise_for_status()
         data: Dict[str, Dict[str, str]] = r.json()
         return data['commit']['sha']
@@ -112,7 +179,7 @@ class Git:
                               'head': self._branch_name,
                               'base': head_ref,
                           },
-                          headers=self._headers)
+                          headers=self._build_headers())
         r.raise_for_status()
         data: Dict[str, int] = r.json()
         return data['number']
@@ -121,7 +188,7 @@ class Git:
         r = requests.get('https://api.github.com/repos/'
                          f'{self.repository}/actions/runs',
                          json={'branch': self._branch_name},
-                         headers=self._headers)
+                         headers=self._build_headers())
         r.raise_for_status()
         return {
             action['name']: action['conclusion']
@@ -135,20 +202,20 @@ class Git:
     def merge_pull_request(self, pull_request_id: int) -> None:
         r = requests.put(f'https://api.github.com/repos/'
                          f'{self.repository}/pulls/{pull_request_id}/merge',
-                         headers=self._headers)
+                         headers=self._build_headers())
         r.raise_for_status()
 
     def create_commit_comment(self, sha: str, comment: str) -> None:
         r = requests.post(f'https://api.github.com/repos/'
                           f'{self.repository}/commits/{sha}/comments',
                           json={'body': comment},
-                          headers=self._headers)
+                          headers=self._build_headers())
         r.raise_for_status()
 
     def delete_branch(self) -> None:
         r = requests.delete(f'https://api.github.com/repos/'
                             f'{self.repository}/git/refs/heads/{self._branch_name}',
-                            headers=self._headers)
+                            headers=self._build_headers())
         r.raise_for_status()
 
     def wait_for_workflows(self, required_workflows: List[str], pull_request_id: int) -> bool:

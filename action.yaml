@@ -2,9 +2,15 @@
 name: infrabits/pipup
 description: Automatic update of `pip` dependancies
 
-inputs:
+secrets:
   github-access-token:
-    required: true
+    required: false
+    type: string
+  github-app-id:
+    required: false
+    type: int
+  github-app-key:
+    required: false
     type: string
 
 runs:
@@ -18,8 +24,17 @@ runs:
     - uses: actions/checkout@v2
     - shell: bash
       run: |
-        pipup \
-        --merge \
-        --repository ${{ github.repository }}
+        if [ ! -z "${{ secrets.github-app-id }}" ];
+        then
+          pipup \
+          --merge \
+          --repository ${{ github.repository }} \
+          --github-app-id ${{ secrets.github-app-id }} \
+          --github-app-key ${{ secrets.github-app-key }}
+        else
+          pipup \
+          --merge \
+          --repository ${{ github.repository }}
+        fi
       env:
-        GITHUB_TOKEN: ${{ inputs.github-access-token }}
+        GITHUB_TOKEN: ${{ secrets.github-access-token }}

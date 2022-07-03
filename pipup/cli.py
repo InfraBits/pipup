@@ -23,6 +23,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
+import base64
 import logging
 import sys
 import uuid
@@ -32,7 +33,7 @@ from typing import List, Optional
 import click
 
 from .models import Requirements
-from .git import Git
+from .git import GithubApp, Git
 from .settings import Settings
 from .updater import Updater
 
@@ -65,13 +66,14 @@ def _update(path: PosixPath, settings: Settings) -> Optional[List[Requirements]]
     return updated_requirements
 
 
-def _merge(path: PosixPath, settings: Settings, repository: str,
-           updated_requirements: List[Requirements]) -> None:
+def _merge(settings: Settings, repository: str,
+           updated_requirements: List[Requirements],
+           github_app: Optional[GithubApp]) -> None:
     branch_name = f'pipup-{uuid.uuid4()}'
     logger.info(f'Merging updated requirements files using {branch_name}')
 
     # Handle the merging logic as required
-    git = Git(repository, branch_name)
+    git = Git(repository, branch_name, github_app)
     head_ref, head_sha = git.get_head_ref()
     if not head_ref or not head_sha:
         logger.error('Failed to get head ref')
@@ -123,8 +125,15 @@ def _merge(path: PosixPath, settings: Settings, repository: str,
 @click.option('--debug', is_flag=True, help='Increase logging level to debug')
 @click.option('--merge', is_flag=True, help='Merge changes into a GitHub repo')
 @click.option('--repository', help='Name of the GitHub repo these files belong to')
+@click.option('--github-app-id', type=int, help='GitHub app id')
+@click.option('--github-app-key', type=str, help='GitHub app private key')
 @click.option('--path', help='Path to update', type=PosixPath, default=PosixPath.cwd())
-def cli(debug: bool, path: PosixPath, merge: bool, repository: str) -> None:
+def cli(debug: bool,
+        path: PosixPath,
+        merge: bool,
+        repository: str,
+        github_app_id: Optional[int] = None,
+        github_app_key: Optional[str] = None) -> None:
     '''pipup - Simple requirements updater.'''
     logging.basicConfig(stream=sys.stderr,
                         level=(logging.DEBUG if debug else logging.INFO),
@@ -143,7 +152,11 @@ def cli(debug: bool, path: PosixPath, merge: bool, repository: str) -> None:
 
     # Create a pull request if required & we have changes
     if merge and updated_requirements:
-        _merge(path, settings, repository, updated_requirements)
+        github_app: Optional[GithubApp] = None
+        if github_app_id and github_app_key:
+            github_app = GithubApp(github_app_id, base64.b64decode(github_app_key).decode('utf-8'))
+
+        _merge(settings, repository, updated_requirements, github_app)
 
 
 if __name__ == '__main__':
