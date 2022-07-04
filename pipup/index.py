@@ -76,7 +76,8 @@ class GitIndex:
         headers = {'Accept': 'application/vnd.github.v3+json'}
         if self._github_app is not None:
             access_token = self._github_app.get_access_token(f'{org}/{repo}')
-            headers |= {'Authorization': f'Bearer {access_token}'}
+            if access_token is not None:
+                headers |= {'Authorization': f'Bearer {access_token}'}
         else:
             headers |= {'Authorization': f'token {os.environ.get("GITHUB_TOKEN", "")}'}
         return headers
