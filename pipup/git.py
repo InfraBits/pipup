@@ -78,20 +78,23 @@ class GithubApp:
         )
         return str(r.json()['token'])
 
-    def _get_installation_id(self, repository: str) -> int:
+    def _get_installation_id(self, repository: str) -> Optional[int]:
         r = requests.get(
             f'https://api.github.com/repos/{repository}/installation',
             headers={
                 'Authorization': f'Bearer {self._get_bearer_token()}',
             },
         )
+        if r.status_code == 404:
+            return None
         r.raise_for_status()
         return int(r.json()['id'])
 
-    def get_access_token(self, repository: str) -> str:
-        return self._get_access_token(
-            self._get_installation_id(repository)
-        )
+    def get_access_token(self, repository: str) -> Optional[str]:
+        installation_id = self._get_installation_id(repository)
+        if installation_id is None:
+            return None
+        return self._get_access_token(installation_id)
 
 
 class Git:
@@ -106,7 +109,8 @@ class Git:
         }
         if self._github_app is not None:
             access_token = self._github_app.get_access_token(self.repository)
-            headers['Authorization'] = f'Bearer {access_token}'
+            if access_token is not None:
+                headers['Authorization'] = f'Bearer {access_token}'
         else:
             headers['Authorization'] = f'token {os.environ.get("GITHUB_TOKEN", "")}'
         return headers
