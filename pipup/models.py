@@ -200,7 +200,11 @@ class GitHubDependency(Dependency):
             dep_line += f' {extra}'
 
         logger.debug(f'Using "{dep_line}" for "{line}"')
-        dependency = parse(dep_line, filetypes.requirements_txt).dependencies[0]
+        dependencies = parse(dep_line, filetypes.requirements_txt).dependencies
+        if not dependencies:
+            logger.warning(f'Could not find any dependencies on line `{dep_line}`')
+            return None
+        dependency = dependencies[0]
         dependency.version_pin = current_tag
 
         return GitHubDependency(
