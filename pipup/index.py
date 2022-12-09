@@ -44,6 +44,20 @@ class Index:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
+    def _filter_releases(self, releases: List[str]) -> List[str]:
+        filtered_releases = []
+        for release in releases:
+            if PRE_RELEASE_PATTERN.search(release):
+                continue
+            try:
+                filtered_releases.append(version.parse(release))
+            except version.InvalidVersion:
+                logger.warning(f'Ignoring {release} due to parsing error')
+                pass
+
+        filtered_releases = sorted(filtered_releases, reverse=True)
+        return [f'{release}' for release in filtered_releases]
+
     def get_releases_for_package(self, name: str) -> List[str]:
         package = None
         for mirror in self._settings.mirrors:
@@ -57,20 +71,30 @@ class Index:
         if package is None:
             raise ValueError(f'No release found for: {name}')
 
-        releases = sorted([f'{version.parse(release)}'
-                           for release in package["releases"].keys()
-                           if PRE_RELEASE_PATTERN.search(release) is None
-                           if not any([r["yanked"] for r in package["releases"][release]])],
-                          key=lambda x: version.parse(x),
-                          reverse=True)
-
-        return releases
+        return self._filter_releases([release
+                                      for release in package["releases"].keys()
+                                      if not any([r["yanked"]
+                                                  for r in package["releases"][release]])])
 
 
 class GitIndex:
     def __init__(self, settings: Settings, github_app: Optional[GithubApp]) -> None:
         self._settings = settings
         self._github_app = github_app
+
+    def _filter_releases(self, releases: List[str]) -> List[str]:
+        filtered_releases = []
+        for release in releases:
+            if PRE_RELEASE_PATTERN.search(release):
+                continue
+            try:
+                filtered_releases.append(version.parse(release))
+            except version.InvalidVersion:
+                logger.warning(f'Ignoring {release} due to parsing error')
+                pass
+
+        filtered_releases = sorted(filtered_releases, reverse=True)
+        return [f'{release}' for release in filtered_releases]
 
     def _build_headers(self, org: str, repo: str) -> Dict[str, str]:
         headers = {'Accept': 'application/vnd.github.v3+json'}
@@ -91,11 +115,7 @@ class GitIndex:
         if data is None:
             raise ValueError(f'No tags found for: {data}')
 
-        return sorted([f'{version.parse(tag["name"])}'
-                       for tag in data
-                       if PRE_RELEASE_PATTERN.search(tag["name"]) is None],
-                      key=lambda x: version.parse(x),
-                      reverse=True)
+        return self._filter_releases([tag["name"] for tag in data])
 
     def get_releases_for_repo(self, org: str, repo: str) -> List[str]:
         r = requests.get(f'https://api.github.com/repos/{org}/{repo}/releases',
@@ -106,9 +126,4 @@ class GitIndex:
         if data is None:
             raise ValueError(f'No releases found for: {data}')
 
-        return sorted([release["tag_name"]
-                       for release in data
-                       if PRE_RELEASE_PATTERN.search(release["tag_name"]) is None
-                       if not release["draft"] and not release["prerelease"]],
-                      key=lambda x: version.parse(x),
-                      reverse=True)
+        return self._filter_releases([release["tag_name"] for release in data])
