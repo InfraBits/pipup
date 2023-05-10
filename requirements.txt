@@ -3,5 +3,5 @@ PyYAML==6.0
 requests==2.30.0
 packaging==23.1
 dparse==0.6.2
-pyjwt==2.6.0
+pyjwt==2.7.0
 cryptography==40.0.2
