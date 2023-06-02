@@ -4,4 +4,4 @@ requests==2.31.0
 packaging==23.1
 dparse==0.6.2
 pyjwt==2.7.0
-cryptography==41.0.0
+cryptography==41.0.1
