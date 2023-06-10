@@ -26,7 +26,7 @@ SOFTWARE.
 import logging
 import os
 import re
-from typing import List, Pattern, Optional, Dict
+from typing import List, Pattern, Optional, Dict, Union
 
 import requests
 from packaging import version
@@ -82,16 +82,20 @@ class GitIndex:
         self._settings = settings
         self._github_app = github_app
 
-    def _filter_releases(self, releases: List[str]) -> List[str]:
-        filtered_releases = []
+    def _filter_releases(self, releases: List[str], raw_version: bool = False) -> List[str]:
+        filtered_releases: List[Union[version.Version, str]] = []
         for release in releases:
             if PRE_RELEASE_PATTERN.search(release):
                 continue
             try:
-                filtered_releases.append(version.parse(release))
+                parsed_version = version.parse(release)
             except version.InvalidVersion:
                 logger.warning(f'Ignoring {release} due to parsing error')
-                pass
+            else:
+                if raw_version:
+                    filtered_releases.append(release)
+                else:
+                    filtered_releases.append(parsed_version)
 
         filtered_releases = sorted(filtered_releases, reverse=True)
         return [f'{release}' for release in filtered_releases]
@@ -126,4 +130,4 @@ class GitIndex:
         if data is None:
             raise ValueError(f'No releases found for: {data}')
 
-        return self._filter_releases([release["tag_name"] for release in data])
+        return self._filter_releases([release["tag_name"] for release in data], True)
