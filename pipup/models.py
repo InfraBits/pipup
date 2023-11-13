@@ -40,11 +40,12 @@ class DependencyOptions:
     specifier: SpecifierSet
     ignore: Optional[bool]
     use_tags: Optional[bool]
+    allow_pre_releases: Optional[bool]
     raw: Optional[str]
 
     @staticmethod
     def parse_options(text: Optional[str]) -> 'DependencyOptions':
-        specifier, ignore, use_tags, raw = SpecifierSet(), False, False, text
+        specifier, ignore, use_tags, allow_pre_releases, raw = SpecifierSet(), False, False, False, text
 
         if text:
             text_to_parse = text
@@ -58,8 +59,10 @@ class DependencyOptions:
                     ignore = True
                 elif option_to_parse == 'git:tags':
                     use_tags = True
+                elif option_to_parse == 'releases:pre':
+                    allow_pre_releases = True
 
-        return DependencyOptions(specifier, ignore, use_tags, raw)
+        return DependencyOptions(specifier, ignore, use_tags, allow_pre_releases, raw)
 
 
 @dataclass
@@ -200,11 +203,7 @@ class GitHubDependency(Dependency):
             dep_line += f' {extra}'
 
         logger.debug(f'Using "{dep_line}" for "{line}"')
-        dependencies = parse(dep_line, filetypes.requirements_txt).dependencies
-        if not dependencies:
-            logger.warning(f'Could not find any dependencies on line `{dep_line}`')
-            return None
-        dependency = dependencies[0]
+        dependency = parse(dep_line, filetypes.requirements_txt).dependencies[0]
         dependency.version_pin = current_tag
 
         return GitHubDependency(

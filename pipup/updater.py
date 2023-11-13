@@ -85,7 +85,8 @@ class Updater:
                         releases = self._git.get_releases_for_repo(dependency.github_org,
                                                                    dependency.github_repo)
                 else:
-                    releases = self._index.get_releases_for_package(dependency.name)
+                    releases = self._index.get_releases_for_package(dependency.name,
+                                                                    dependency.options.allow_pre_releases)
 
                 if dependency.options.specifier:
                     releases = [
