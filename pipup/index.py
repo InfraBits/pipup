@@ -44,10 +44,10 @@ class Index:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
 
-    def _filter_releases(self, releases: List[str], allow_pre_releases: bool) -> List[str]:
+    def _filter_releases(self, releases: List[str], allow_pre_releases: Optional[bool]) -> List[str]:
         filtered_releases = []
         for release in releases:
-            if not allow_pre_releases and PRE_RELEASE_PATTERN.search(release):
+            if allow_pre_releases is not True and PRE_RELEASE_PATTERN.search(release):
                 continue
             try:
                 filtered_releases.append(version.parse(release))
@@ -58,7 +58,7 @@ class Index:
         filtered_releases = sorted(filtered_releases, reverse=True)
         return [f'{release}' for release in filtered_releases]
 
-    def get_releases_for_package(self, name: str, allow_pre_releases: bool) -> List[str]:
+    def get_releases_for_package(self, name: str, allow_pre_releases: Optional[bool]) -> List[str]:
         package = None
         for mirror in self._settings.mirrors:
             r = requests.get(mirror.format(name=name))
