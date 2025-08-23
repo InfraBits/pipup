@@ -271,7 +271,7 @@ class LockFile:
         return changes
 
     def update_count(self) -> int:
-        return len(self._calculate_changes())
+        return len(self._calculate_changes().keys())
 
     def update_summary(self) -> str:
         return f"pipup: {self.update_count()} dependencies updated in {self.file_path}"
