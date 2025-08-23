@@ -274,7 +274,7 @@ class LockFile:
         return self.update_count() > 0
 
     def update_summary(self) -> str:
-        return f"pipup: {self.update_count()} dependencies updated in {self.file_path}"
+        return f"pipup: {self.update_count()} dependencies updated in {self.file_path.as_posix()}"
 
     def update_detail(self) -> str:
         commit_body = ""

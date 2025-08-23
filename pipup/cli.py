@@ -106,8 +106,12 @@ def _merge(
                 commit_description,
             )
 
+    if not branch_sha:
+        logger.info('No branch changes found, skipping PR')
+        git.delete_branch()
+        return
+
     logger.info(f"Creating pull request for {branch_name}")
-    assert branch_sha is not None
     if pull_request_id := git.create_pull_request(
         head_ref, pull_request_summary, pull_request_description.strip()
     ):
