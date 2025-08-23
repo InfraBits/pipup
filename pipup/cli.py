@@ -28,12 +28,13 @@ import logging
 import sys
 import uuid
 from pathlib import PosixPath
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import click
 
-from .models import Requirements
+from .poetry import Poetry
 from .git import GithubApp, Git
+from .models import Requirements, LockFile
 from .settings import Settings
 from .updater import Updater
 
@@ -42,7 +43,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 def _update(path: PosixPath,
             settings: Settings,
-            github_app: Optional[GithubApp]) -> Optional[List[Requirements]]:
+            github_app: Optional[GithubApp]) -> List[Requirements]:
     updater = Updater(path, settings, github_app)
 
     logger.info('Resolving requirements')
@@ -56,7 +57,7 @@ def _update(path: PosixPath,
         for requirements in updated_requirements
     ]):
         logger.info('No updates required')
-        return None
+        return []
 
     logger.info('Saving updated requirements files')
     for requirements in updated_requirements:
@@ -69,7 +70,7 @@ def _update(path: PosixPath,
 
 
 def _merge(settings: Settings, repository: str,
-           updated_requirements: List[Requirements],
+           updates: List[Union[Requirements, LockFile]],
            github_app: Optional[GithubApp]) -> None:
     branch_name = f'pipup-{uuid.uuid4()}'
     logger.info(f'Merging updated requirements files using {branch_name}')
@@ -83,22 +84,22 @@ def _merge(settings: Settings, repository: str,
 
     git.create_branch(head_sha)
 
-    pull_request_summary = f'pipup ({sum([r.update_count() for r in updated_requirements])})'
+    pull_request_summary = f'pipup ({sum([r.update_count() for r in updates])} changes)'
     pull_request_description = ''
     branch_sha = None
-    for requirements in updated_requirements:
-        if requirements.have_updates():
-            commit_summary = requirements.update_summary()
-            commit_description = requirements.update_detail()
+    for update in updates:
+        if update.have_updates():
+            commit_summary = update.update_summary()
+            commit_description = update.update_detail()
 
-            pull_request_description += f'{requirements.file_path}:\n'
+            pull_request_description += f'{update.file_path}:\n'
             pull_request_description += f'{commit_description}\n'
 
-            logger.info(f' - {requirements.file_path}')
+            logger.info(f' - {update.file_path}')
             logger.info(f'  Using commit summary: {commit_summary}')
             logger.info(f'  Using commit description: {commit_description}')
-            branch_sha = git.update_branch_file(requirements.file_path,
-                                                requirements.export_requirements_txt(),
+            branch_sha = git.update_branch_file(update.file_path,
+                                                update.render_contents(),
                                                 commit_summary,
                                                 commit_description)
 
@@ -154,12 +155,15 @@ def cli(debug: bool,
     if github_app_id and github_app_key:
         github_app = GithubApp(github_app_id, base64.b64decode(github_app_key).decode('utf-8'))
 
-    # Perform the actual updates
-    updated_requirements = _update(path, settings, github_app)
+    poetry = Poetry(path, settings)
+
+    updates: List[Union[Requirements, LockFile]] = []
+    updates.extend(poetry.update())
+    updates.extend(_update(path, settings, github_app))
 
     # Create a pull request if required & we have changes
-    if merge and updated_requirements:
-        _merge(settings, repository, updated_requirements, github_app)
+    if merge and updates:
+        _merge(settings, repository, updates, github_app)
 
 
 if __name__ == '__main__':

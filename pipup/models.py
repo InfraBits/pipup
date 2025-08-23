@@ -24,9 +24,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 '''
 import logging
+import tomllib
 from dataclasses import dataclass
+from functools import cache
 from pathlib import PosixPath
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple, Union, Dict
 from urllib.parse import urlparse
 
 from dparse import parse, filetypes, dependencies  # type: ignore
@@ -224,7 +226,7 @@ class GitHubDependency(Dependency):
             '.'.join(path_parts[1].split('.')[:-1])  # Strip off .git,
         )
 
-    def export_requirements_txt(self) -> str:
+    def render_contents(self) -> str:
         text = f"{self.git_schema}://{'git@' if self.git_schema == 'git+ssh' else ''}"
         text += f"github.com/{self.github_org}/{self.github_repo}.git"
         if self.version_pin:
@@ -233,3 +235,46 @@ class GitHubDependency(Dependency):
         if self.options.raw:
             text += f" # {self.options.raw}"
         return text
+
+
+@dataclass
+class LockFile:
+    file_path: PosixPath
+    current_contents: str
+    new_contents: str
+
+    def _get_packages_from_contents(self, contents: str) -> Dict[str, str]:
+        data = tomllib.loads(contents)
+        print(data)
+        return {}
+
+    @cache
+    def _calculate_changes(self):
+        previous_packages = self._get_packages_from_contents(self.current_contents)
+        new_packages = self._get_packages_from_contents(self.new_contents)
+
+        changes = {}
+        for package in set(previous_packages.keys()) | set(new_packages.keys()):
+            previous_version = previous_packages.get(package)
+            new_version = new_packages.get(package)
+            if previous_version != new_version:
+                changes[package] = (previous_version, new_version)
+        return changes
+
+    def update_count(self) -> int:
+        return len(self._calculate_changes())
+
+    def update_summary(self) -> str:
+        return f'pipup: {self.update_count()} dependencies updated in {self.file_path}'
+
+    def update_detail(self) -> str:
+        commit_body = ''
+        for package, (old, new) in sorted(self._calculate_changes(), key=lambda i: i[0]):
+            commit_body += f'* {package}:'
+            if old:
+                commit_body += f' {old}'
+            commit_body += f' -> {new}\n'
+        return commit_body
+
+    def render_contents(self) -> str:
+        return self.new_contents
