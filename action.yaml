@@ -1,6 +1,6 @@
 ---
 name: infrabits/pipup
-description: Automatic update of `pip` dependancies
+description: Automatic update of `pip` dependencies
 
 secrets:
   github-access-token:
