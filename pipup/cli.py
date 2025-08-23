@@ -33,9 +33,10 @@ from typing import List, Optional, Union
 
 import click
 
+from .pyversion import PythonVersion
 from .poetry import Poetry
 from .git import GithubApp, Git
-from .models import Requirements, LockFile
+from .models import Requirements, LockFile, PythonVersionFile
 from .settings import Settings
 from .updater import Updater
 
@@ -190,10 +191,14 @@ def cli(
             github_app_id, base64.b64decode(github_app_key).decode("utf-8")
         )
 
-    poetry = Poetry(path.absolute(), settings)
+    updates: List[Union[Requirements, LockFile, PythonVersionFile]] = []
 
-    updates: List[Union[Requirements, LockFile]] = []
+    pyversion = PythonVersion(path.absolute(), settings)
+    updates.extend(pyversion.update())
+
+    poetry = Poetry(path.absolute(), settings)
     updates.extend(poetry.update())
+
     updates.extend(_update(path, settings, github_app))
 
     # Create a pull request if required & we have changes

@@ -40,6 +40,7 @@ class Settings:
     workflows: List[str]
     mirrors: List[str]
     create_new_tag: bool
+    bump_py_version: bool
 
     @staticmethod
     def load(path: PosixPath) -> "Settings":
@@ -57,6 +58,7 @@ class Settings:
             "workflows": ["CI"],
             "mirrors": ["https://pypi.org/pypi/{name}/json"],
             "create_new_tag": False,
+            "bump_py_version": True,
         }
 
         if settings_path.is_file():
@@ -71,4 +73,5 @@ class Settings:
             workflows=settings["workflows"],
             mirrors=settings["mirrors"],
             create_new_tag=settings["create_new_tag"],
+            bump_py_version=settings["bump_py_version"],
         )

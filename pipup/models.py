@@ -289,3 +289,25 @@ class LockFile:
 
     def render_contents(self) -> str:
         return self.new_contents
+
+
+@dataclass
+class PythonVersionFile:
+    file_path: PosixPath
+    current_release: str
+    new_release: str
+
+    def have_updates(self) -> bool:
+        return self.current_release != self.new_release
+
+    def update_count(self) -> int:
+        return 1
+
+    def update_summary(self) -> str:
+        return "pipup: update python-version"
+
+    def update_detail(self) -> str:
+        return f"Change pin from {self.current_release} to {self.new_release}"
+
+    def render_contents(self) -> str:
+        return f"{self.new_release}\n"
