@@ -44,7 +44,7 @@ class Poetry:
         return self._get_project_path().exists() and self._get_lock_path().exists()
 
     def _get_project_path(self):
-        return (self._path / "poetry.lock").absolute()
+        return (self._path / "pyproject.toml").absolute()
 
     def _get_lock_path(self):
         return (self._path / "poetry.lock").absolute()
