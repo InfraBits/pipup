@@ -27,7 +27,6 @@ SOFTWARE.
 import logging
 import tomllib
 from dataclasses import dataclass
-from functools import cache
 from pathlib import PosixPath
 from typing import List, Optional, Tuple, Union, Dict
 from urllib.parse import urlparse
@@ -254,10 +253,8 @@ class LockFile:
 
     def _get_packages_from_contents(self, contents: str) -> Dict[str, str]:
         data = tomllib.loads(contents)
-        print(data)
-        return {}
+        return {package["name"]: package["version"] for package in data["package"]}
 
-    @cache
     def _calculate_changes(self):
         previous_packages = self._get_packages_from_contents(self.current_contents)
         new_packages = self._get_packages_from_contents(self.new_contents)
