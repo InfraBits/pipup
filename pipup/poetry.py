@@ -63,7 +63,6 @@ class Poetry:
             )
             new_locks = self._get_locks()
 
-            if current_locks != new_locks:
-                return [LockFile(self._get_lock_path(), current_locks, new_locks)]
+            return [LockFile(self._get_lock_path(), current_locks, new_locks)]
 
         return []

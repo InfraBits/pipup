@@ -270,6 +270,9 @@ class LockFile:
     def update_count(self) -> int:
         return len(self._calculate_changes().keys())
 
+    def have_updates(self) -> bool:
+        return self.update_count() > 0
+
     def update_summary(self) -> str:
         return f"pipup: {self.update_count()} dependencies updated in {self.file_path}"
 
