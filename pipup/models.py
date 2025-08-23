@@ -279,7 +279,7 @@ class LockFile:
     def update_detail(self) -> str:
         commit_body = ""
         for package, (old, new) in sorted(
-            self._calculate_changes(), key=lambda i: i[0]
+            self._calculate_changes().items(), key=lambda i: i[0]
         ):
             commit_body += f"* {package}:"
             if old:
