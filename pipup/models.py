@@ -170,7 +170,7 @@ class Requirements:
                 commit_body += f" -> {update.new_pin}\n"
         return commit_body
 
-    def export_requirements_txt(self) -> str:
+    def render_contents(self) -> str:
         return "\n".join(
             [
                 f"{dependency.export_requirements_txt()}"

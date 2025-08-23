@@ -62,7 +62,7 @@ def _update(
         if requirements.have_updates():
             logger.info(f" - {requirements.file_path}")
             with (path / requirements.file_path).open("w") as fh:
-                fh.write(requirements.export_requirements_txt())
+                fh.write(requirements.render_contents())
 
     return updated_requirements
 
