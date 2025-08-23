@@ -190,7 +190,7 @@ def cli(
             github_app_id, base64.b64decode(github_app_key).decode("utf-8")
         )
 
-    poetry = Poetry(path, settings)
+    poetry = Poetry(path.absolute(), settings)
 
     updates: List[Union[Requirements, LockFile]] = []
     updates.extend(poetry.update())
