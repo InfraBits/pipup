@@ -1,4 +1,4 @@
-'''
+"""
 pipup - Simple requirements updater
 
 MIT License
@@ -22,7 +22,8 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-'''
+"""
+
 import logging
 import tomllib
 from dataclasses import dataclass
@@ -46,22 +47,28 @@ class DependencyOptions:
     raw: Optional[str]
 
     @staticmethod
-    def parse_options(text: Optional[str]) -> 'DependencyOptions':
-        specifier, ignore, use_tags, allow_pre_releases, raw = SpecifierSet(), False, False, False, text
+    def parse_options(text: Optional[str]) -> "DependencyOptions":
+        specifier, ignore, use_tags, allow_pre_releases, raw = (
+            SpecifierSet(),
+            False,
+            False,
+            False,
+            text,
+        )
 
         if text:
             text_to_parse = text
-            while 'pipup:' in text_to_parse:
-                text_to_parse = 'pipup:'.join(text_to_parse.split('pipup:')[1:])
-                option_to_parse = text_to_parse.split(' ')[0]
+            while "pipup:" in text_to_parse:
+                text_to_parse = "pipup:".join(text_to_parse.split("pipup:")[1:])
+                option_to_parse = text_to_parse.split(" ")[0]
 
-                if option_to_parse.startswith('version:'):
-                    specifier = SpecifierSet(option_to_parse.split(':')[1])
-                elif option_to_parse == 'ignore':
+                if option_to_parse.startswith("version:"):
+                    specifier = SpecifierSet(option_to_parse.split(":")[1])
+                elif option_to_parse == "ignore":
                     ignore = True
-                elif option_to_parse == 'git:tags':
+                elif option_to_parse == "git:tags":
                     use_tags = True
-                elif option_to_parse == 'releases:pre':
+                elif option_to_parse == "releases:pre":
                     allow_pre_releases = True
 
         return DependencyOptions(specifier, ignore, use_tags, allow_pre_releases, raw)
@@ -83,15 +90,15 @@ class Dependency:
     options: DependencyOptions
 
     @staticmethod
-    def parse_dependency(dependency: dependencies.Dependency) -> 'Dependency':
+    def parse_dependency(dependency: dependencies.Dependency) -> "Dependency":
         return Dependency(
             dependency.name,
-            f'{dependency.specs}'.lstrip('=') if len(dependency.specs) > 0 else None,
+            f"{dependency.specs}".lstrip("=") if len(dependency.specs) > 0 else None,
             dependency.extras if len(dependency.extras) > 0 else None,
             DependencyOptions.parse_options(
-                '#'.join(dependency.line.split('#')[1:]).lstrip()
-                if '#' in dependency.line else
-                None
+                "#".join(dependency.line.split("#")[1:]).lstrip()
+                if "#" in dependency.line
+                else None
             ),
         )
 
@@ -121,9 +128,11 @@ class Requirements:
     updates: List[Update]
 
     @staticmethod
-    def parse_requirements_txt(base_path: PosixPath, file_path: PosixPath) -> 'Requirements':
+    def parse_requirements_txt(
+        base_path: PosixPath, file_path: PosixPath
+    ) -> "Requirements":
         dependencies: List[Union[RawDependency, GitHubDependency, Dependency]] = []
-        with file_path.open('r') as fh:
+        with file_path.open("r") as fh:
             # parse does not support all lines, specifically git sourced dependencies
             # thus explicitly parse each line, so we can maintain order...
             for line in fh.readlines():
@@ -132,10 +141,9 @@ class Requirements:
                     dependencies.append(Dependency.parse_dependency(deps[0]))
                     continue
                 if (
-                    (line.strip().startswith('git+https://github.com/')
-                     or line.strip().startswith('git+ssh://git@github.com/'))
-                    and '#egg=' in line.strip()
-                ):
+                    line.strip().startswith("git+https://github.com/")
+                    or line.strip().startswith("git+ssh://git@github.com/")
+                ) and "#egg=" in line.strip():
                     if dep := GitHubDependency.parse_line(line.strip()):
                         dependencies.append(dep)
                         continue
@@ -143,33 +151,34 @@ class Requirements:
         return Requirements(file_path.relative_to(base_path), dependencies, [])
 
     def have_updates(self) -> bool:
-        return len([update
-                    for update in self.updates
-                    if update.pin_changed]) > 0
+        return len([update for update in self.updates if update.pin_changed]) > 0
 
     def update_count(self) -> int:
         return len([update for update in self.updates if update.pin_changed])
 
     def update_summary(self) -> str:
-        return f'pipup: {self.update_count()} dependencies updated in {self.file_path}'
+        return f"pipup: {self.update_count()} dependencies updated in {self.file_path}"
 
     def update_detail(self) -> str:
-        commit_body = ''
-        for update in sorted(self.updates, key=lambda u: (u.name,
-                                                          u.new_pin,
-                                                          u.previous_pin)):
+        commit_body = ""
+        for update in sorted(
+            self.updates, key=lambda u: (u.name, u.new_pin, u.previous_pin)
+        ):
             if update.pin_changed:
-                commit_body += f'* {update.name}:'
+                commit_body += f"* {update.name}:"
                 if update.previous_pin:
-                    commit_body += f' {update.previous_pin}'
-                commit_body += f' -> {update.new_pin}\n'
+                    commit_body += f" {update.previous_pin}"
+                commit_body += f" -> {update.new_pin}\n"
         return commit_body
 
     def export_requirements_txt(self) -> str:
-        return '\n'.join([
-            f'{dependency.export_requirements_txt()}'
-            for dependency in self.dependencies
-        ] + [''])
+        return "\n".join(
+            [
+                f"{dependency.export_requirements_txt()}"
+                for dependency in self.dependencies
+            ]
+            + [""]
+        )
 
 
 @dataclass
@@ -180,29 +189,29 @@ class GitHubDependency(Dependency):
     version_pin: Optional[str]
 
     @staticmethod
-    def parse_line(line: str) -> Optional['GitHubDependency']:
-        o = urlparse(line.split(' ')[0])
+    def parse_line(line: str) -> Optional["GitHubDependency"]:
+        o = urlparse(line.split(" ")[0])
         current_scheme = o.scheme
-        current_url = o.path.split('@')[0] if '@' in o.path else o.path
-        current_tag = o.path.split('@')[1] if '@' in o.path else None
+        current_url = o.path.split("@")[0] if "@" in o.path else o.path
+        current_tag = o.path.split("@")[1] if "@" in o.path else None
 
-        if not current_url.endswith('.git'):
+        if not current_url.endswith(".git"):
             # Not sure how to handle this
-            logger.error(f'Found github url not pointing to git repo? {o}')
+            logger.error(f"Found github url not pointing to git repo? {o}")
             return None
 
-        path_parts = current_url.lstrip('/').split('/')
+        path_parts = current_url.lstrip("/").split("/")
         if len(path_parts) != 2:
             # Not sure how to handle this
-            logger.error(f'Found github url not pointing to org/repo? {path_parts}')
+            logger.error(f"Found github url not pointing to org/repo? {path_parts}")
             return None
 
-        extra = ' '.join(line.split(' ')[1:]) if ' ' in line else ''
+        extra = " ".join(line.split(" ")[1:]) if " " in line else ""
         dep_line = o.fragment.replace("egg=", "")
         if current_tag:
-            dep_line += f'=={current_tag}'
+            dep_line += f"=={current_tag}"
         if extra:
-            dep_line += f' {extra}'
+            dep_line += f" {extra}"
 
         logger.debug(f'Using "{dep_line}" for "{line}"')
 
@@ -214,16 +223,16 @@ class GitHubDependency(Dependency):
 
         return GitHubDependency(
             dependency.name,
-            f'{dependency.specs}'.lstrip('=') if len(dependency.specs) > 0 else None,
+            f"{dependency.specs}".lstrip("=") if len(dependency.specs) > 0 else None,
             dependency.extras if len(dependency.extras) > 0 else None,
             DependencyOptions.parse_options(
-                '#'.join(dependency.line.split('#')[1:]).lstrip()
-                if '#' in dependency.line else
-                None
+                "#".join(dependency.line.split("#")[1:]).lstrip()
+                if "#" in dependency.line
+                else None
             ),
             current_scheme,
             path_parts[0],
-            '.'.join(path_parts[1].split('.')[:-1])  # Strip off .git,
+            ".".join(path_parts[1].split(".")[:-1]),  # Strip off .git,
         )
 
     def render_contents(self) -> str:
@@ -265,15 +274,17 @@ class LockFile:
         return len(self._calculate_changes())
 
     def update_summary(self) -> str:
-        return f'pipup: {self.update_count()} dependencies updated in {self.file_path}'
+        return f"pipup: {self.update_count()} dependencies updated in {self.file_path}"
 
     def update_detail(self) -> str:
-        commit_body = ''
-        for package, (old, new) in sorted(self._calculate_changes(), key=lambda i: i[0]):
-            commit_body += f'* {package}:'
+        commit_body = ""
+        for package, (old, new) in sorted(
+            self._calculate_changes(), key=lambda i: i[0]
+        ):
+            commit_body += f"* {package}:"
             if old:
-                commit_body += f' {old}'
-            commit_body += f' -> {new}\n'
+                commit_body += f" {old}"
+            commit_body += f" -> {new}\n"
         return commit_body
 
     def render_contents(self) -> str:

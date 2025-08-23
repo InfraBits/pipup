@@ -1,4 +1,4 @@
-'''
+"""
 pipup - Simple requirements updater
 
 MIT License
@@ -22,7 +22,8 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-'''
+"""
+
 import logging
 from pathlib import PosixPath
 from typing import List, Union, Optional
@@ -36,10 +37,9 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 
 class Updater:
-    def __init__(self,
-                 path: PosixPath,
-                 settings: Settings,
-                 github_app: Optional[GithubApp]) -> None:
+    def __init__(
+        self, path: PosixPath, settings: Settings, github_app: Optional[GithubApp]
+    ) -> None:
         self._path = path
         self._settings = settings
         self._requirements: List[Requirements] = []
@@ -50,10 +50,10 @@ class Updater:
         for requirements_path in self._settings.requirements:
             requirements = self._path / requirements_path
             if not requirements.is_file():
-                logger.info(f'Skipping: {requirements}')
+                logger.info(f"Skipping: {requirements}")
                 continue
 
-            logger.info(f'Discovered: {requirements}')
+            logger.info(f"Discovered: {requirements}")
             self._requirements.append(
                 Requirements.parse_requirements_txt(self._path, requirements)
             )
@@ -68,25 +68,28 @@ class Updater:
                 # This is something we can't really handle,
                 # but need to pass back for the export
                 if isinstance(dependency, RawDependency):
-                    logger.info(f'Ignoring due to parser: {dependency}')
+                    logger.info(f"Ignoring due to parser: {dependency}")
                     dependencies.append(dependency)
                     continue
 
                 releases = []
                 if dependency.options.ignore:
-                    logger.info(f'Ignoring due to inline config: {dependency.name}')
-                elif '://' in dependency.name:
-                    logger.info(f'Ignoring due to url: {dependency.name}')
+                    logger.info(f"Ignoring due to inline config: {dependency.name}")
+                elif "://" in dependency.name:
+                    logger.info(f"Ignoring due to url: {dependency.name}")
                 elif isinstance(dependency, GitHubDependency):
                     if dependency.options.use_tags:
-                        releases = self._git.get_tags_for_repo(dependency.github_org,
-                                                               dependency.github_repo)
+                        releases = self._git.get_tags_for_repo(
+                            dependency.github_org, dependency.github_repo
+                        )
                     else:
-                        releases = self._git.get_releases_for_repo(dependency.github_org,
-                                                                   dependency.github_repo)
+                        releases = self._git.get_releases_for_repo(
+                            dependency.github_org, dependency.github_repo
+                        )
                 else:
-                    releases = self._index.get_releases_for_package(dependency.name,
-                                                                    dependency.options.allow_pre_releases)
+                    releases = self._index.get_releases_for_package(
+                        dependency.name, dependency.options.allow_pre_releases
+                    )
 
                 if dependency.options.specifier:
                     releases = [
@@ -95,34 +98,46 @@ class Updater:
                         if dependency.options.specifier.contains(release)
                     ]
 
-                logger.debug(f'[{dependency.name}] Found releases after filtering: {releases}')
+                logger.debug(
+                    f"[{dependency.name}] Found releases after filtering: {releases}"
+                )
                 if releases:
-                    logger.debug(f'[{dependency.name}] Found latest release: {releases[0]} ('
-                                 f'{"not " if releases[0] == dependency.version_pin else ""}'
-                                 'changed)')
+                    logger.debug(
+                        f"[{dependency.name}] Found latest release: {releases[0]} ("
+                        f'{"not " if releases[0] == dependency.version_pin else ""}'
+                        "changed)"
+                    )
 
                 updates.append(
-                    Update(dependency.name,
-                           dependency.version_pin,
-                           (
-                               releases[0]
-                               if len(releases) > 0 else
-                               dependency.version_pin
-                           ),
-                           (
-                               len(releases) > 0 and releases[0] != dependency.version_pin
-                           ))
+                    Update(
+                        dependency.name,
+                        dependency.version_pin,
+                        (releases[0] if len(releases) > 0 else dependency.version_pin),
+                        (len(releases) > 0 and releases[0] != dependency.version_pin),
+                    )
                 )
 
                 dependencies.append(
                     dependency
-                    if not releases else
-                    (GitHubDependency(dependency.name, releases[0], dependency.extras,
-                                      dependency.options, dependency.git_schema,
-                                      dependency.github_org, dependency.github_repo)
-                     if isinstance(dependency, GitHubDependency) else
-                     Dependency(dependency.name, releases[0],
-                                dependency.extras, dependency.options))
+                    if not releases
+                    else (
+                        GitHubDependency(
+                            dependency.name,
+                            releases[0],
+                            dependency.extras,
+                            dependency.options,
+                            dependency.git_schema,
+                            dependency.github_org,
+                            dependency.github_repo,
+                        )
+                        if isinstance(dependency, GitHubDependency)
+                        else Dependency(
+                            dependency.name,
+                            releases[0],
+                            dependency.extras,
+                            dependency.options,
+                        )
+                    )
                 )
 
             _requirements.append(

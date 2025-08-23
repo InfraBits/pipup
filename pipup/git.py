@@ -1,4 +1,4 @@
-'''
+"""
 pipup - Simple requirements updater
 
 MIT License
@@ -22,15 +22,16 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-'''
+"""
+
 import base64
 import logging
 import os
 import time
-import jwt
 from pathlib import PosixPath
 from typing import Optional, List, Tuple, Dict
 
+import jwt
 import requests
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -50,15 +51,14 @@ class GithubApp:
         unix_now = int(time.time())
         unix_start = unix_now - 60  # Allow for clock drift
         unix_end = unix_now + 600
-        return jwt.encode(
-            payload={
-                'iat': unix_start,
-                'exp': unix_end,
-                'iss': self._app_id
-            },
-            key=self._private_key,
-            algorithm='RS256'
-        ), unix_end
+        return (
+            jwt.encode(
+                payload={"iat": unix_start, "exp": unix_end, "iss": self._app_id},
+                key=self._private_key,
+                algorithm="RS256",
+            ),
+            unix_end,
+        )
 
     def _get_bearer_token(self) -> str:
         if (
@@ -71,24 +71,24 @@ class GithubApp:
 
     def _get_access_token(self, installation_id: int) -> str:
         r = requests.post(
-            f'https://api.github.com/app/installations/{installation_id}/access_tokens',
+            f"https://api.github.com/app/installations/{installation_id}/access_tokens",
             headers={
-                'Authorization': f'Bearer {self._get_bearer_token()}',
+                "Authorization": f"Bearer {self._get_bearer_token()}",
             },
         )
-        return str(r.json()['token'])
+        return str(r.json()["token"])
 
     def _get_installation_id(self, repository: str) -> Optional[int]:
         r = requests.get(
-            f'https://api.github.com/repos/{repository}/installation',
+            f"https://api.github.com/repos/{repository}/installation",
             headers={
-                'Authorization': f'Bearer {self._get_bearer_token()}',
+                "Authorization": f"Bearer {self._get_bearer_token()}",
             },
         )
         if r.status_code == 404:
             return None
         r.raise_for_status()
-        return int(r.json()['id'])
+        return int(r.json()["id"])
 
     def get_access_token(self, repository: str) -> Optional[str]:
         installation_id = self._get_installation_id(repository)
@@ -98,156 +98,178 @@ class GithubApp:
 
 
 class Git:
-    def __init__(self, repository: str, branch_name: str, github_app: Optional[GithubApp]) -> None:
+    def __init__(
+        self, repository: str, branch_name: str, github_app: Optional[GithubApp]
+    ) -> None:
         self.repository = repository
         self._branch_name = branch_name
         self._github_app = github_app
 
     def _build_headers(self) -> Dict[str, str]:
-        headers = {
-            'Accept': 'application/vnd.github.v3+json'
-        }
+        headers = {"Accept": "application/vnd.github.v3+json"}
         if self._github_app is not None:
             access_token = self._github_app.get_access_token(self.repository)
             if access_token is not None:
-                headers['Authorization'] = f'Bearer {access_token}'
+                headers["Authorization"] = f"Bearer {access_token}"
         else:
-            headers['Authorization'] = f'token {os.environ.get("GITHUB_TOKEN", "")}'
+            headers["Authorization"] = f'token {os.environ.get("GITHUB_TOKEN", "")}'
         return headers
 
     def get_default_branch(self) -> Tuple[str, str]:
-        r = requests.get(f'https://api.github.com/repos/{self.repository}',
-                         headers=self._build_headers())
+        r = requests.get(
+            f"https://api.github.com/repos/{self.repository}",
+            headers=self._build_headers(),
+        )
         r.raise_for_status()
         data: Dict[str, Tuple[str, str]] = r.json()
-        return data['default_branch']
+        return data["default_branch"]
 
     def get_head_ref(self) -> Tuple[Optional[str], Optional[str]]:
-        r = requests.get('https://api.github.com/repos/'
-                         f'{self.repository}/git/refs',
-                         headers=self._build_headers())
+        r = requests.get(
+            "https://api.github.com/repos/" f"{self.repository}/git/refs",
+            headers=self._build_headers(),
+        )
         r.raise_for_status()
 
         default_branch = self.get_default_branch()
         for branch in r.json():
-            if branch['ref'] == f'refs/heads/{default_branch}':
-                return branch['ref'], branch['object']['sha']
+            if branch["ref"] == f"refs/heads/{default_branch}":
+                return branch["ref"], branch["object"]["sha"]
         return None, None
 
     def create_branch(self, base_sha: str) -> None:
-        r = requests.post('https://api.github.com/repos/'
-                          f'{self.repository}/git/refs',
-                          json={
-                              'ref': f'refs/heads/{self._branch_name}',
-                              'sha': base_sha,
-                          },
-                          headers=self._build_headers())
+        r = requests.post(
+            "https://api.github.com/repos/" f"{self.repository}/git/refs",
+            json={
+                "ref": f"refs/heads/{self._branch_name}",
+                "sha": base_sha,
+            },
+            headers=self._build_headers(),
+        )
         r.raise_for_status()
 
     def get_file_sha(self, path: PosixPath) -> Optional[str]:
-        r = requests.get('https://api.github.com/repos/'
-                         f'{self.repository}/contents/{path}',
-                         json={'branch': self._branch_name},
-                         headers=self._build_headers())
+        r = requests.get(
+            "https://api.github.com/repos/" f"{self.repository}/contents/{path}",
+            json={"branch": self._branch_name},
+            headers=self._build_headers(),
+        )
         if r.status_code == 404:
             return None
         r.raise_for_status()
         data: Dict[str, Optional[str]] = r.json()
-        return data['sha']
+        return data["sha"]
 
-    def update_branch_file(self,
-                           path: PosixPath,
-                           contents: str,
-                           commit_summary: str,
-                           commit_body: Optional[str]) -> str:
-        r = requests.put('https://api.github.com/repos/'
-                         f'{self.repository}/contents/{path}',
-                         json={
-                             'message': (f'{commit_summary}\n{commit_body}'
-                                         if commit_body else commit_summary),
-                             'branch': self._branch_name,
-                             'content': base64.b64encode(contents.encode('utf-8')).decode('utf-8'),
-                             'sha': self.get_file_sha(path),
-                         },
-                         headers=self._build_headers())
+    def update_branch_file(
+        self,
+        path: PosixPath,
+        contents: str,
+        commit_summary: str,
+        commit_body: Optional[str],
+    ) -> str:
+        r = requests.put(
+            "https://api.github.com/repos/" f"{self.repository}/contents/{path}",
+            json={
+                "message": (
+                    f"{commit_summary}\n{commit_body}"
+                    if commit_body
+                    else commit_summary
+                ),
+                "branch": self._branch_name,
+                "content": base64.b64encode(contents.encode("utf-8")).decode("utf-8"),
+                "sha": self.get_file_sha(path),
+            },
+            headers=self._build_headers(),
+        )
         r.raise_for_status()
         data: Dict[str, Dict[str, str]] = r.json()
-        return data['commit']['sha']
+        return data["commit"]["sha"]
 
     def create_pull_request(self, head_ref: str, summary: str, description: str) -> int:
-        r = requests.post('https://api.github.com/repos/'
-                          f'{self.repository}/pulls',
-                          json={
-                              'title': summary,
-                              'body': description,
-                              'head': self._branch_name,
-                              'base': head_ref,
-                          },
-                          headers=self._build_headers())
+        r = requests.post(
+            "https://api.github.com/repos/" f"{self.repository}/pulls",
+            json={
+                "title": summary,
+                "body": description,
+                "head": self._branch_name,
+                "base": head_ref,
+            },
+            headers=self._build_headers(),
+        )
         r.raise_for_status()
         data: Dict[str, int] = r.json()
-        return data['number']
+        return data["number"]
 
     def get_pull_request_actions(self, pull_request_id: int) -> Dict[str, str]:
-        r = requests.get('https://api.github.com/repos/'
-                         f'{self.repository}/actions/runs',
-                         json={'branch': self._branch_name},
-                         headers=self._build_headers())
+        r = requests.get(
+            "https://api.github.com/repos/" f"{self.repository}/actions/runs",
+            json={"branch": self._branch_name},
+            headers=self._build_headers(),
+        )
         r.raise_for_status()
         return {
-            action['name']: action['conclusion']
-            for action in r.json()['workflow_runs']
-            if action['conclusion']
-            if action['event'] == 'pull_request'
-            if any([pr['number'] == pull_request_id
-                    for pr in action['pull_requests']])
+            action["name"]: action["conclusion"]
+            for action in r.json()["workflow_runs"]
+            if action["conclusion"]
+            if action["event"] == "pull_request"
+            if any([pr["number"] == pull_request_id for pr in action["pull_requests"]])
         }
 
     def merge_pull_request(self, pull_request_id: int) -> None:
-        r = requests.put(f'https://api.github.com/repos/'
-                         f'{self.repository}/pulls/{pull_request_id}/merge',
-                         json={'merge_method': 'rebase'},
-                         headers=self._build_headers())
+        r = requests.put(
+            f"https://api.github.com/repos/"
+            f"{self.repository}/pulls/{pull_request_id}/merge",
+            json={"merge_method": "rebase"},
+            headers=self._build_headers(),
+        )
         r.raise_for_status()
 
     def create_commit_comment(self, sha: str, comment: str) -> None:
-        r = requests.post(f'https://api.github.com/repos/'
-                          f'{self.repository}/commits/{sha}/comments',
-                          json={'body': comment},
-                          headers=self._build_headers())
+        r = requests.post(
+            f"https://api.github.com/repos/"
+            f"{self.repository}/commits/{sha}/comments",
+            json={"body": comment},
+            headers=self._build_headers(),
+        )
         r.raise_for_status()
 
     def delete_branch(self) -> None:
-        r = requests.delete(f'https://api.github.com/repos/'
-                            f'{self.repository}/git/refs/heads/{self._branch_name}',
-                            headers=self._build_headers())
+        r = requests.delete(
+            f"https://api.github.com/repos/"
+            f"{self.repository}/git/refs/heads/{self._branch_name}",
+            headers=self._build_headers(),
+        )
         r.raise_for_status()
 
-    def wait_for_workflows(self, required_workflows: List[str], pull_request_id: int) -> bool:
-        required_workflows = [required_workflow.lower()
-                              for required_workflow in required_workflows]
-        logger.info(f'Waiting for: {required_workflows}')
+    def wait_for_workflows(
+        self, required_workflows: List[str], pull_request_id: int
+    ) -> bool:
+        required_workflows = [
+            required_workflow.lower() for required_workflow in required_workflows
+        ]
+        logger.info(f"Waiting for: {required_workflows}")
 
         while True:
             pull_request_actions = {
                 k.lower(): v
                 for k, v in self.get_pull_request_actions(pull_request_id).items()
             }
-            logger.info(f'Found workflows: {pull_request_actions}')
+            logger.info(f"Found workflows: {pull_request_actions}")
 
-            if all([
-                workflow in pull_request_actions
-                for workflow in required_workflows
-            ]):
-                logger.info('All required workflows have concluded')
+            if all(
+                [workflow in pull_request_actions for workflow in required_workflows]
+            ):
+                logger.info("All required workflows have concluded")
 
                 happy_bunny = True
                 for required_workflow in required_workflows:
-                    if pull_request_actions[required_workflow] != 'success':
-                        logger.error(f'Workflow for {required_workflow} failed'
-                                     f': {pull_request_actions[required_workflow]}')
+                    if pull_request_actions[required_workflow] != "success":
+                        logger.error(
+                            f"Workflow for {required_workflow} failed"
+                            f": {pull_request_actions[required_workflow]}"
+                        )
                         happy_bunny = False
                 return happy_bunny
 
-            logger.info('Missing required workflows, waiting....')
+            logger.info("Missing required workflows, waiting....")
             time.sleep(5)

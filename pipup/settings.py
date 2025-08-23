@@ -1,4 +1,4 @@
-'''
+"""
 pipup - Simple requirements updater
 
 MIT License
@@ -22,7 +22,8 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-'''
+"""
+
 import logging
 from dataclasses import dataclass
 from pathlib import PosixPath
@@ -40,29 +41,31 @@ class Settings:
     mirrors: List[str]
 
     @staticmethod
-    def load(path: PosixPath) -> 'Settings':
-        settings_path = path / '.pipup.yaml'
+    def load(path: PosixPath) -> "Settings":
+        settings_path = path / ".pipup.yaml"
         settings = {
-            'requirements': ['requirements.txt',
-                             'requirements-dev.txt',
-                             'dev-requirements.txt',
-                             'requirements-prod.txt',
-                             'prod-requirements.txt',
-                             'requirements-test.txt',
-                             'test-requirements.txt'],
-            'workflows': ['CI'],
-            'mirrors': ['https://pypi.org/pypi/{name}/json'],
+            "requirements": [
+                "requirements.txt",
+                "requirements-dev.txt",
+                "dev-requirements.txt",
+                "requirements-prod.txt",
+                "prod-requirements.txt",
+                "requirements-test.txt",
+                "test-requirements.txt",
+            ],
+            "workflows": ["CI"],
+            "mirrors": ["https://pypi.org/pypi/{name}/json"],
         }
 
         if settings_path.is_file():
-            logger.debug(f'Loading settings from {settings_path}')
-            with settings_path.open('r') as fh:
+            logger.debug(f"Loading settings from {settings_path}")
+            with settings_path.open("r") as fh:
                 settings_data = yaml.load(fh, Loader=yaml.SafeLoader)
-                logger.debug(f'Merging {settings_data} into {settings}')
+                logger.debug(f"Merging {settings_data} into {settings}")
                 settings.update(settings_data)
 
         return Settings(
-            requirements=settings['requirements'],
-            workflows=settings['workflows'],
-            mirrors=settings['mirrors'],
+            requirements=settings["requirements"],
+            workflows=settings["workflows"],
+            mirrors=settings["mirrors"],
         )

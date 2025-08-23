@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-'''
+"""
 pipup - Simple requirements updater
 
 MIT License
@@ -23,39 +23,37 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-'''
+"""
 from pathlib import Path
 
 import pkg_resources
 from setuptools import setup, find_packages
 
-with Path('README.md').open('r') as fh:
+with Path("README.md").open("r") as fh:
     long_description = fh.read()
 
-with Path('requirements.txt').open('r') as fh:
+with Path("requirements.txt").open("r") as fh:
     install_requires = [str(req) for req in pkg_resources.parse_requirements(fh)]
 
 setup(
-    name='pipup',
-    description='Simple requirements updater',
+    name="pipup",
+    description="Simple requirements updater",
     long_description=long_description,
-    long_description_content_type='text/markdown',
-    url='https://github.com/InfraBits/pipup',
+    long_description_content_type="text/markdown",
+    url="https://github.com/InfraBits/pipup",
     packages=find_packages(),
-    author='Infra Bits',
-    author_email='info@infrabits.nl',
-    license='MIT',
-    test_suite='tests',
-    platforms='any',
+    author="Infra Bits",
+    author_email="info@infrabits.nl",
+    license="MIT",
+    test_suite="tests",
+    platforms="any",
     install_requires=install_requires,
     entry_points={
-        'console_scripts': [
-            'pipup=pipup.cli:cli'
-        ],
+        "console_scripts": ["pipup=pipup.cli:cli"],
     },
     classifiers=[
-        'Programming Language :: Python :: 3',
-        'Operating System :: OS Independent',
+        "Programming Language :: Python :: 3",
+        "Operating System :: OS Independent",
     ],
-    python_requires='>=3.9',
+    python_requires=">=3.9",
 )

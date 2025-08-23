@@ -1,4 +1,4 @@
-'''
+"""
 pipup - Simple requirements updater
 
 MIT License
@@ -22,7 +22,8 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-'''
+"""
+
 import logging
 import subprocess
 from pathlib import PosixPath
@@ -43,21 +44,23 @@ class Poetry:
         return self._get_project_path().exists() and self._get_lock_path().exists()
 
     def _get_project_path(self):
-        return (self._path / 'poetry.lock').absolute()
+        return (self._path / "poetry.lock").absolute()
 
     def _get_lock_path(self):
-        return (self._path / 'poetry.lock').absolute()
+        return (self._path / "poetry.lock").absolute()
 
     def _get_locks(self):
-        with self._get_lock_path().open('r') as fh:
+        with self._get_lock_path().open("r") as fh:
             return fh.read()
 
     def update(self) -> List[LockFile]:
         if self._is_poetry_project():
             current_locks = self._get_locks()
-            subprocess.run([
-                'poetry', 'lock', '--regenerate', '--no-interaction'
-            ], check=True, cwd=self._path)
+            subprocess.run(
+                ["poetry", "lock", "--regenerate", "--no-interaction"],
+                check=True,
+                cwd=self._path,
+            )
             new_locks = self._get_locks()
 
             if current_locks != new_locks:
