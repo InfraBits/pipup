@@ -39,6 +39,7 @@ class Settings:
     requirements: List[str]
     workflows: List[str]
     mirrors: List[str]
+    create_new_tag: bool
 
     @staticmethod
     def load(path: PosixPath) -> "Settings":
@@ -55,6 +56,7 @@ class Settings:
             ],
             "workflows": ["CI"],
             "mirrors": ["https://pypi.org/pypi/{name}/json"],
+            "create_new_tag": False,
         }
 
         if settings_path.is_file():
@@ -68,4 +70,5 @@ class Settings:
             requirements=settings["requirements"],
             workflows=settings["workflows"],
             mirrors=settings["mirrors"],
+            create_new_tag=settings["create_new_tag"],
         )

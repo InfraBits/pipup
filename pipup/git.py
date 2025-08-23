@@ -99,7 +99,10 @@ class GithubApp:
 
 class Git:
     def __init__(
-        self, repository: str, branch_name: str, github_app: Optional[GithubApp]
+        self,
+        repository: str,
+        branch_name: Optional[str],
+        github_app: Optional[GithubApp],
     ) -> None:
         self.repository = repository
         self._branch_name = branch_name
@@ -124,6 +127,14 @@ class Git:
         data: Dict[str, Tuple[str, str]] = r.json()
         return data["default_branch"]
 
+    def get_latest_release_tag(self) -> str:
+        r = requests.get(
+            f"https://api.github.com/repos/{self.repository}/releases/latest",
+            headers=self._build_headers(),
+        )
+        r.raise_for_status()
+        return r.json()["tag_name"]
+
     def get_head_ref(self) -> Tuple[Optional[str], Optional[str]]:
         r = requests.get(
             "https://api.github.com/repos/" f"{self.repository}/git/refs",
@@ -139,10 +150,21 @@ class Git:
 
     def create_branch(self, base_sha: str) -> None:
         r = requests.post(
-            "https://api.github.com/repos/" f"{self.repository}/git/refs",
+            f"https://api.github.com/repos/{self.repository}/git/refs",
             json={
                 "ref": f"refs/heads/{self._branch_name}",
                 "sha": base_sha,
+            },
+            headers=self._build_headers(),
+        )
+        r.raise_for_status()
+
+    def create_tag(self, tag_name: str, tag_sha: str) -> None:
+        r = requests.post(
+            f"https://api.github.com/repos/{self.repository}/git/refs",
+            json={
+                "ref": f"refs/tags/{tag_name}",
+                "sha": tag_sha,
             },
             headers=self._build_headers(),
         )

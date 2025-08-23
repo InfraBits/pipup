@@ -71,8 +71,8 @@ def _merge(
     settings: Settings,
     repository: str,
     updates: List[Union[Requirements, LockFile]],
-    github_app: Optional[GithubApp],
-) -> None:
+    github_app: GithubApp,
+) -> bool:
     branch_name = f"pipup-{uuid.uuid4()}"
     logger.info(f"Merging updated requirements files using {branch_name}")
 
@@ -81,7 +81,7 @@ def _merge(
     head_ref, head_sha = git.get_head_ref()
     if not head_ref or not head_sha:
         logger.error("Failed to get head ref")
-        return
+        return False
 
     git.create_branch(head_sha)
 
@@ -107,9 +107,9 @@ def _merge(
             )
 
     if not branch_sha:
-        logger.info('No branch changes found, skipping PR')
+        logger.info("No branch changes found, skipping PR")
         git.delete_branch()
-        return
+        return False
 
     logger.info(f"Creating pull request for {branch_name}")
     if pull_request_id := git.create_pull_request(
@@ -119,6 +119,7 @@ def _merge(
         if git.wait_for_workflows(settings.workflows, pull_request_id):
             logger.info(f"Merging pull request {pull_request_id}")
             git.merge_pull_request(pull_request_id)
+            return True
         else:
             logger.info(f"Closing failed pull request {pull_request_id}")
             try:
@@ -129,6 +130,27 @@ def _merge(
             except Exception as e:
                 logger.exception("Failed to create commit comment", e)
             git.delete_branch()
+    return False
+
+
+def _create_new_tag(repository: str, github_app: GithubApp) -> bool:
+    git = Git(repository, None, github_app)
+    latest_tag = git.get_latest_release_tag()
+    if not latest_tag.startswith("v") or "." not in latest_tag:
+        logger.error(f"Unknown release format: {latest_tag}")
+        return False
+
+    parts = latest_tag.split(".")
+    try:
+        increment = int(parts[-1]) + 1
+    except ValueError:
+        logger.error(f"Could not convert last part to number: {parts}")
+        return False
+
+    _, head_ref = git.get_head_ref()
+    new_tag = f'{".".join(parts[0:-1])}.{increment}'
+    logger.info(f"Creating tag {latest_tag} -> {new_tag} ({head_ref})")
+    git.create_tag(new_tag, head_ref)
 
 
 @click.command()
@@ -175,8 +197,10 @@ def cli(
     updates.extend(_update(path, settings, github_app))
 
     # Create a pull request if required & we have changes
-    if merge and updates:
-        _merge(settings, repository, updates, github_app)
+    if github_app and merge and updates:
+        if _merge(settings, repository, updates, github_app):
+            if settings.create_new_tag:
+                _create_new_tag(repository, github_app)
 
 
 if __name__ == "__main__":
