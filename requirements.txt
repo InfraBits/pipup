@@ -1,8 +1,8 @@
-click==8.1.8
+click==8.3.0
 PyYAML==6.0.2
-requests==2.32.3
-packaging==24.2
+requests==2.32.5
+packaging==25.0
 dparse==0.6.4
 pyjwt==2.10.1
-cryptography==44.0.2
-poetry
+cryptography==46.0.1
+poetry==2.2.1
