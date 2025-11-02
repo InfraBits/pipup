@@ -1,5 +1,5 @@
 click==8.1.8
-PyYAML==6.0.2
+PyYAML==6.0.3
 requests==2.32.3
 packaging==24.2
 dparse==0.6.4
